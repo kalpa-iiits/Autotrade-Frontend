@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { errorMessage } from '../api/client'
 
 /** Load data on mount (and on `reload()`), keeping the last good value while reloading. */
@@ -92,4 +93,16 @@ export function statusTone(status: string): string {
 
 export function Empty({ children }: { children: ReactNode }) {
   return <p className="muted empty">{children}</p>
+}
+
+/** Shown by pages that work on a broker account when the user has none yet. */
+export function NeedAccount({ title }: { title: string }) {
+  return (
+    <Card title={title}>
+      <p>Add a broker account first: a paper account to try things out, or your own Fyers / Zerodha app.</p>
+      <p>
+        <Link to="/accounts">Go to Accounts</Link>
+      </p>
+    </Card>
+  )
 }

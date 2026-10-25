@@ -3,13 +3,16 @@ import { ApiError, errorMessage } from '../api/client'
 import { useAuth } from '../auth'
 
 export default function Login() {
-  const { login } = useAuth()
+  const { login, signup } = useAuth()
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [repeat, setRepeat] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [lockedUntil, setLockedUntil] = useState<number | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const [busy, setBusy] = useState(false)
+  const signingUp = mode === 'signup'
 
   // Count down a 429 lockout.
   useEffect(() => {
@@ -23,21 +26,33 @@ export default function Login() {
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    setBusy(true)
     setError(null)
+    if (signingUp && password !== repeat) {
+      setError('Passwords do not match.')
+      return
+    }
+    setBusy(true)
     try {
-      await login(username, password)
+      await (signingUp ? signup : login)(username, password)
     } catch (err) {
       if (err instanceof ApiError && err.status === 429) {
         setLockedUntil(Date.now() + (err.retryAfter ?? 300) * 1000)
         setNow(Date.now())
-        setError('Too many failed sign-ins from this address.')
+        setError('Too many attempts from this address.')
+      } else if (signingUp && err instanceof ApiError && err.status === 404) {
+        setError('Sign-up is turned off on this server. Ask its admin for a user.')
       } else {
         setError(err instanceof ApiError && err.status === 401 ? 'Wrong username or password.' : errorMessage(err))
       }
     } finally {
       setBusy(false)
     }
+  }
+
+  function switchMode() {
+    setMode(signingUp ? 'signin' : 'signup')
+    setError(null)
+    setRepeat('')
   }
 
   const wait = lockedUntil ? Math.max(0, Math.ceil((lockedUntil - now) / 1000)) : 0
@@ -54,12 +69,19 @@ export default function Login() {
           Password
           <input
             type="password"
-            autoComplete="current-password"
+            autoComplete={signingUp ? 'new-password' : 'current-password'}
+            minLength={signingUp ? 10 : undefined}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
         </label>
+        {signingUp && (
+          <label>
+            Repeat password
+            <input type="password" autoComplete="new-password" value={repeat} onChange={(e) => setRepeat(e.target.value)} required />
+          </label>
+        )}
         {error && (
           <div className="error" role="alert">
             {error}
@@ -67,7 +89,10 @@ export default function Login() {
           </div>
         )}
         <button type="submit" disabled={busy || wait > 0}>
-          {busy ? 'Signing in…' : 'Sign in'}
+          {busy ? (signingUp ? 'Creating…' : 'Signing in…') : signingUp ? 'Create user' : 'Sign in'}
+        </button>
+        <button type="button" className="link" onClick={switchMode}>
+          {signingUp ? 'I already have a user: sign in' : 'New here? Create a user'}
         </button>
       </form>
     </div>

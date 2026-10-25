@@ -6,6 +6,8 @@ interface AuthState {
   /** undefined while checking the session on load, null when signed out. */
   user: Me | null | undefined
   login(username: string, password: string): Promise<void>
+  /** Create a user and sign in (only when the server allows sign-up; 404 otherwise). */
+  signup(username: string, password: string): Promise<void>
   logout(): Promise<void>
   /** Drop the local session (after a 401 or a socket closed with 1008). */
   signedOut(): void
@@ -30,6 +32,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await unwrap(api.POST('/api/auth/login', { body: { username, password } })))
   }, [])
 
+  const signup = useCallback(async (username: string, password: string) => {
+    setUser(await unwrap(api.POST('/api/auth/signup', { body: { username, password } })))
+  }, [])
+
   const logout = useCallback(async () => {
     try {
       await unwrap(api.POST('/api/auth/logout'))
@@ -39,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, signedOut }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, login, signup, logout, signedOut }}>{children}</AuthContext.Provider>
   )
 }
 

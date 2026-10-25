@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAccounts } from '../accounts'
 import { api, unwrap } from '../api/client'
 import type { ClosedTrades } from '../api/types'
 import { Badge, Card, Empty, ErrorBox, Pnl, fmtNum, fmtTime, useLoad } from '../components/ui'
@@ -11,6 +12,11 @@ function nextDay(day: string): string {
 }
 
 export default function Trades() {
+  const { accounts, current } = useAccounts()
+  // "all": every account of yours; otherwise the selected one.
+  const [scope, setScope] = useState<'current' | 'all'>('current')
+  const accountId = scope === 'current' ? current?.id : undefined
+  const labelOf = (id: number) => accounts?.find((a) => a.id === id)?.label ?? `#${id} (deleted)`
   const [symbol, setSymbol] = useState('')
   const [since, setSince] = useState('')
   const [until, setUntil] = useState('')
@@ -20,6 +26,7 @@ export default function Trades() {
         api.GET('/api/trades/closed', {
           params: {
             query: {
+              account_id: accountId,
               symbol: symbol || undefined,
               since: since ? `${since}T00:00:00+05:30` : undefined,
               until: until ? `${nextDay(until)}T00:00:00+05:30` : undefined, // "To" day inclusive
@@ -28,7 +35,7 @@ export default function Trades() {
           },
         }),
       ),
-    [symbol, since, until],
+    [accountId, symbol, since, until],
   )
   const t = trades.data?.totals
 
@@ -38,6 +45,10 @@ export default function Trades() {
         title="Closed trades"
         actions={
           <>
+            <select className="small" aria-label="Accounts" value={scope} onChange={(e) => setScope(e.target.value as 'current' | 'all')}>
+              <option value="current">{current ? `${current.label} only` : 'Selected account'}</option>
+              <option value="all">All my accounts</option>
+            </select>
             <input className="small" placeholder="Symbol" value={symbol} onChange={(e) => setSymbol(e.target.value.trim())} />
             <label className="inline">
               From <input className="small" type="date" value={since} onChange={(e) => setSince(e.target.value)} />
@@ -81,7 +92,7 @@ export default function Trades() {
               <thead>
                 <tr>
                   <th>Closed</th>
-                  <th>Broker</th>
+                  <th>Account</th>
                   <th>Symbol</th>
                   <th>Dir</th>
                   <th className="num">Qty</th>
@@ -95,7 +106,9 @@ export default function Trades() {
                 {trades.data.positions.map((p) => (
                   <tr key={p.id}>
                     <td>{fmtTime(p.closed_at)}</td>
-                    <td>{p.broker}</td>
+                    <td>
+                      {labelOf(p.account_id)} <span className="muted small-text">{p.broker}</span>
+                    </td>
                     <td>{p.symbol}</td>
                     <td>
                       <Badge tone={p.direction === 'LONG' ? 'good' : 'bad'}>{p.direction}</Badge>

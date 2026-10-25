@@ -1,16 +1,26 @@
 import { useCallback, useState, type FormEvent } from 'react'
+import { accountName, useCurrentAccount } from '../accounts'
 import { api, errorMessage, unwrap } from '../api/client'
-import type { HistoryOrder, Order, OrderType, OrdersMessage, Side } from '../api/types'
-import { Badge, Card, Empty, ErrorBox, fmtNum, fmtTime, statusTone, useLoad } from '../components/ui'
+import type { Account, HistoryOrder, Order, OrderType, OrdersMessage, Side } from '../api/types'
+import { Badge, Card, Empty, ErrorBox, NeedAccount, fmtNum, fmtTime, statusTone, useLoad } from '../components/ui'
 import { useLive } from '../live'
 
 export default function Orders() {
-  const book = useLoad(() => unwrap(api.GET('/api/orders')))
+  const account = useCurrentAccount()
+  if (!account) return <NeedAccount title="Orders" />
+  return <AccountOrders key={account.id} account={account} />
+}
+
+function AccountOrders({ account }: { account: Account }) {
+  const accountPath = { account_id: account.id }
+  const book = useLoad(() => unwrap(api.GET('/api/accounts/{account_id}/orders', { params: { path: accountPath } })))
   const [symbolFilter, setSymbolFilter] = useState('')
   const history = useLoad(
     () =>
       unwrap<HistoryOrder[]>(
-        api.GET('/api/orders/history', { params: { query: { symbol: symbolFilter || undefined, limit: 200 } } }),
+        api.GET('/api/accounts/{account_id}/orders/history', {
+          params: { path: accountPath, query: { symbol: symbolFilter || undefined, limit: 200 } },
+        }),
       ),
     [symbolFilter],
   )
@@ -29,13 +39,14 @@ export default function Orders() {
 
   return (
     <div className="stack">
-      <PlaceOrder onPlaced={(o) => book.setData((orders) => upsert(orders ?? [], o))} />
+      <PlaceOrder account={account} onPlaced={(o) => book.setData((orders) => upsert(orders ?? [], o))} />
 
       <Card title="Today's order book" actions={<button className="link" onClick={() => void book.reload()}>Refresh</button>}>
         <ErrorBox error={book.error} />
         {book.data?.length === 0 && <Empty>No orders today.</Empty>}
         {!!book.data?.length && (
           <OrderTable
+            accountId={account.id}
             orders={[...book.data].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))}
             onCancelled={(o) => book.setData((orders) => upsert(orders ?? [], o))}
           />
@@ -58,7 +69,7 @@ export default function Orders() {
       >
         <ErrorBox error={history.error} />
         {history.data?.length === 0 && <Empty>No orders.</Empty>}
-        {!!history.data?.length && <OrderTable orders={history.data} showBroker />}
+        {!!history.data?.length && <OrderTable accountId={account.id} orders={history.data} />}
       </Card>
     </div>
   )
@@ -72,8 +83,9 @@ function upsert(orders: Order[], order: Order): Order[] {
   return copy
 }
 
-function PlaceOrder({ onPlaced }: { onPlaced: (o: Order) => void }) {
-  const [symbol, setSymbol] = useState('NSE:SBIN-EQ')
+function PlaceOrder({ account, onPlaced }: { account: Account; onPlaced: (o: Order) => void }) {
+  // Kite symbols have no "-EQ" suffix.
+  const [symbol, setSymbol] = useState(account.broker === 'zerodha' ? 'NSE:SBIN' : 'NSE:SBIN-EQ')
   const [side, setSide] = useState<Side>('BUY')
   const [quantity, setQuantity] = useState(1)
   const [orderType, setOrderType] = useState<OrderType>('MARKET')
@@ -85,13 +97,15 @@ function PlaceOrder({ onPlaced }: { onPlaced: (o: Order) => void }) {
   async function submit(e: FormEvent) {
     e.preventDefault()
     const desc = `${side} ${quantity} ${symbol} ${orderType === 'LIMIT' ? `LIMIT @ ${limitPrice}` : 'at MARKET'}`
-    if (!window.confirm(`Place order: ${desc}?`)) return
+    const real = account.broker === 'paper' ? '' : ' This is a REAL order.'
+    if (!window.confirm(`Place order on ${accountName(account)}: ${desc}?${real}`)) return
     setBusy(true)
     setError(null)
     setResult(null)
     try {
       const order = await unwrap(
-        api.POST('/api/orders', {
+        api.POST('/api/accounts/{account_id}/orders', {
+          params: { path: { account_id: account.id } },
           body: {
             symbol: symbol.trim(),
             side,
@@ -111,7 +125,7 @@ function PlaceOrder({ onPlaced }: { onPlaced: (o: Order) => void }) {
   }
 
   return (
-    <Card title="Place order">
+    <Card title={`Place order — ${accountName(account)}`}>
       <form className="row-form" onSubmit={submit}>
         <label>
           Symbol
@@ -152,12 +166,12 @@ function PlaceOrder({ onPlaced }: { onPlaced: (o: Order) => void }) {
 }
 
 function OrderTable({
+  accountId,
   orders,
-  showBroker,
   onCancelled,
 }: {
+  accountId: number
   orders: (Order | HistoryOrder)[]
-  showBroker?: boolean
   onCancelled?: (o: Order) => void
 }) {
   const [error, setError] = useState<string | null>(null)
@@ -168,7 +182,11 @@ function OrderTable({
     setCancelling(o.id ?? null)
     setError(null)
     try {
-      const updated = await unwrap(api.DELETE('/api/orders/{order_id}', { params: { path: { order_id: o.id! } } }))
+      const updated = await unwrap(
+        api.DELETE('/api/accounts/{account_id}/orders/{order_id}', {
+          params: { path: { account_id: accountId, order_id: o.id! } },
+        }),
+      )
       onCancelled?.(updated)
     } catch (err) {
       setError(errorMessage(err))
@@ -185,7 +203,6 @@ function OrderTable({
           <thead>
             <tr>
               <th>Time</th>
-              {showBroker && <th>Broker</th>}
               <th>Symbol</th>
               <th>Side</th>
               <th>Type</th>
@@ -200,9 +217,8 @@ function OrderTable({
           </thead>
           <tbody>
             {orders.map((o) => (
-              <tr key={`${'broker' in o ? o.broker : ''}${o.id}`}>
+              <tr key={o.id}>
                 <td>{fmtTime(o.created_at)}</td>
-                {showBroker && <td>{'broker' in o ? o.broker : ''}</td>}
                 <td>{o.symbol}</td>
                 <td className={o.side === 'BUY' ? 'pos' : 'neg'}>{o.side}</td>
                 <td>{o.order_type}</td>

@@ -81,24 +81,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/auth/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Auth Status */
-        get: operations["auth_status_api_auth_status_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/{broker}/logout": {
+    "/api/auth/signup": {
         parameters: {
             query?: never;
             header?: never;
@@ -107,15 +90,58 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Logout */
-        post: operations["logout_api_auth__broker__logout_post"];
+        /**
+         * Signup
+         * @description Create your own user and sign in. Only when AUTOTRADE_ALLOW_SIGNUP=true (404 otherwise).
+         *     Shares the failed-login lockout, so it can't be used to hammer the server.
+         */
+        post: operations["signup_api_auth_signup_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/auth/fyers/login": {
+    "/api/auth/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tokens */
+        get: operations["tokens_api_auth_tokens_get"];
+        put?: never;
+        /**
+         * New Token
+         * @description The token is in this response only; it is stored hashed and can't be shown again.
+         *     It acts as you: send it as Authorization: Bearer <token> (or ?token= on WebSockets).
+         */
+        post: operations["new_token_api_auth_tokens_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/tokens/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Token */
+        delete: operations["delete_token_api_auth_tokens__token_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/brokers": {
         parameters: {
             query?: never;
             header?: never;
@@ -123,10 +149,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Fyers Login
-         * @description Start the Fyers login. Default: redirect the browser. ?redirect=false: {"url": ...}.
+         * Supported Brokers
+         * @description What each broker needs: credential fields (secret) and options, for an "add account" form.
          */
-        get: operations["fyers_login_api_auth_fyers_login_get"];
+        get: operations["supported_brokers_api_accounts_brokers_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -135,24 +161,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/auth/fyers/callback": {
+    "/api/accounts": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Fyers Callback */
-        get: operations["fyers_callback_api_auth_fyers_callback_get"];
+        /** List Accounts */
+        get: operations["list_accounts_api_accounts_get"];
         put?: never;
-        post?: never;
+        /** Create Account */
+        post: operations["create_account_api_accounts_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/auth/zerodha/login": {
+    "/api/accounts/{account_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Account */
+        get: operations["get_account_api_accounts__account_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Account
+         * @description Disconnects the account and wipes its credentials and token. Its order and trade
+         *     history is kept (still yours). Stop its strategies first.
+         */
+        delete: operations["delete_account_api_accounts__account_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Account
+         * @description New credentials or options reconnect the account (and drop today's broker login).
+         */
+        patch: operations["update_account_api_accounts__account_id__patch"];
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/access-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Paste Access Token
+         * @description Use an access token generated elsewhere for today, instead of the broker login.
+         */
+        post: operations["paste_access_token_api_accounts__account_id__access_token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/broker-logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Broker Logout
+         * @description Forget today's broker token and disconnect.
+         */
+        post: operations["broker_logout_api_accounts__account_id__broker_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/reconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reconnect */
+        post: operations["reconnect_api_accounts__account_id__reconnect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/broker-login": {
         parameters: {
             query?: never;
             header?: never;
@@ -160,10 +270,11 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Zerodha Login
-         * @description Start the Zerodha login. Default: redirect the browser. ?redirect=false: {"url": ...}.
+         * Broker Login
+         * @description Start the broker login for this account. Default: redirect the browser.
+         *     ?redirect=false: {"url": ...} (a frontend then sets window.location).
          */
-        get: operations["zerodha_login_api_auth_zerodha_login_get"];
+        get: operations["broker_login_api_accounts__account_id__broker_login_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -172,24 +283,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/auth/zerodha/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Zerodha Callback */
-        get: operations["zerodha_callback_api_auth_zerodha_callback_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/market/quotes": {
+    "/api/accounts/{account_id}/market/quotes": {
         parameters: {
             query?: never;
             header?: never;
@@ -200,7 +294,7 @@ export interface paths {
          * Quotes
          * @description Last traded price per symbol: {"NSE:SBIN-EQ": 812.3, ...}. Unknown symbols are left out.
          */
-        get: operations["quotes_api_market_quotes_get"];
+        get: operations["quotes_api_accounts__account_id__market_quotes_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -209,7 +303,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/market/candles": {
+    "/api/accounts/{account_id}/market/candles": {
         parameters: {
             query?: never;
             header?: never;
@@ -220,7 +314,7 @@ export interface paths {
          * Candles
          * @description OHLCV candles, oldest first: [{"time": ISO8601, "open", "high", "low", "close", "volume"}].
          */
-        get: operations["candles_api_market_candles_get"];
+        get: operations["candles_api_accounts__account_id__market_candles_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -229,7 +323,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/orders": {
+    "/api/accounts/{account_id}/orders": {
         parameters: {
             query?: never;
             header?: never;
@@ -240,21 +334,22 @@ export interface paths {
          * List Orders
          * @description Today's orders from the broker's order book.
          */
-        get: operations["list_orders_api_orders_get"];
+        get: operations["list_orders_api_accounts__account_id__orders_get"];
         put?: never;
         /**
          * Place Order
-         * @description Place an order (same as place_order on /api/ws/orders). A broker rejection still returns
-         *     201 with status REJECTED and the reason; 422 means the request itself was refused.
+         * @description Place an order (same as place_order on the account's socket). A broker rejection still
+         *     returns 201 with status REJECTED and the reason; 422 means the request itself was refused.
+         *     Repeating a request with the same `client_order_id` returns the first order.
          */
-        post: operations["place_order_api_orders_post"];
+        post: operations["place_order_api_accounts__account_id__orders_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/orders/history": {
+    "/api/accounts/{account_id}/orders/history": {
         parameters: {
             query?: never;
             header?: never;
@@ -265,7 +360,7 @@ export interface paths {
          * History
          * @description Orders recorded in the database, newest first; works even when the broker is offline.
          */
-        get: operations["history_api_orders_history_get"];
+        get: operations["history_api_accounts__account_id__orders_history_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -274,7 +369,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/orders/{order_id}": {
+    "/api/accounts/{account_id}/orders/{order_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -288,13 +383,13 @@ export interface paths {
          * Cancel Order
          * @description Cancel an open order.
          */
-        delete: operations["cancel_order_api_orders__order_id__delete"];
+        delete: operations["cancel_order_api_accounts__account_id__orders__order_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/orders/{order_id}/events": {
+    "/api/accounts/{account_id}/orders/{order_id}/events": {
         parameters: {
             query?: never;
             header?: never;
@@ -305,7 +400,7 @@ export interface paths {
          * Order Events
          * @description Every recorded state change of one order, oldest first.
          */
-        get: operations["order_events_api_orders__order_id__events_get"];
+        get: operations["order_events_api_accounts__account_id__orders__order_id__events_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -314,7 +409,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/account/positions": {
+    "/api/accounts/{account_id}/positions": {
         parameters: {
             query?: never;
             header?: never;
@@ -325,7 +420,7 @@ export interface paths {
          * List Positions
          * @description Open positions at the broker.
          */
-        get: operations["list_positions_api_account_positions_get"];
+        get: operations["list_positions_api_accounts__account_id__positions_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -334,7 +429,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/account/funds": {
+    "/api/accounts/{account_id}/funds": {
         parameters: {
             query?: never;
             header?: never;
@@ -342,7 +437,7 @@ export interface paths {
             cookie?: never;
         };
         /** Funds */
-        get: operations["funds_api_account_funds_get"];
+        get: operations["funds_api_accounts__account_id__funds_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -414,9 +509,30 @@ export interface paths {
         put?: never;
         /**
          * Add Instance
-         * @description Run a code-defined deployment on another symbol/timeframe. Starts stopped.
+         * @description Run a code-defined deployment on one of your broker accounts, symbol and timeframe.
+         *     Starts stopped.
          */
         post: operations["add_instance_api_strategies_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/strategies/stop-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop All
+         * @description Kill switch: stop every running strategy on your accounts. Open orders are left as they are.
+         */
+        post: operations["stop_all_api_strategies_stop_all_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -437,7 +553,7 @@ export interface paths {
         /**
          * Archive Instance
          * @description Remove an instance from the list. Its signal history is kept; adding the same
-         *     symbol and timeframe again brings it back.
+         *     account, symbol and timeframe again brings it back.
          */
         delete: operations["archive_instance_api_strategies__instance_id__delete"];
         options?: never;
@@ -483,26 +599,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/strategies/stop-all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Stop All
-         * @description Kill switch: stop every running strategy. Open orders are left as they are.
-         */
-        post: operations["stop_all_api_strategies_stop_all_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/strategies/{instance_id}/signals": {
         parameters: {
             query?: never;
@@ -527,7 +623,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Health */
+        /**
+         * Health
+         * @description For monitoring. Public, so counts only: nothing about any user or account.
+         *     status "ok"; "degraded" when a connected account's stream or resync reports a problem;
+         *     "failing" with HTTP 503 when the database is unreachable or an account's trade ledger has
+         *     updates it couldn't save. Per-account detail: GET /api/accounts/{id} (owner only).
+         */
         get: operations["health_health_get"];
         put?: never;
         post?: never;
@@ -541,6 +643,42 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AccessToken */
+        AccessToken: {
+            /** Access Token */
+            access_token: string;
+        };
+        /** AccountCreate */
+        AccountCreate: {
+            /**
+             * Broker
+             * @enum {string}
+             */
+            broker: "paper" | "fyers" | "zerodha";
+            /** Label */
+            label: string;
+            /** Credentials */
+            credentials?: {
+                [key: string]: string;
+            } | null;
+            /** Options */
+            options?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** AccountUpdate */
+        AccountUpdate: {
+            /** Label */
+            label?: string | null;
+            /** Credentials */
+            credentials?: {
+                [key: string]: string;
+            } | null;
+            /** Options */
+            options?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** Credentials */
         Credentials: {
             /** Username */
@@ -557,6 +695,8 @@ export interface components {
         InstanceCreate: {
             /** Deployment Key */
             deployment_key: string;
+            /** Account Id */
+            account_id: number;
             /** Symbol */
             symbol: string;
             /** Timeframe */
@@ -580,6 +720,8 @@ export interface components {
         Order: {
             /** Id */
             id?: string;
+            /** Client Order Id */
+            client_order_id?: string | null;
             /** Symbol */
             symbol: string;
             side: components["schemas"]["Side"];
@@ -621,6 +763,8 @@ export interface components {
             order_type: components["schemas"]["OrderType"];
             /** Limit Price */
             limit_price?: number | null;
+            /** Client Order Id */
+            client_order_id?: string | null;
         };
         /**
          * OrderStatus
@@ -653,6 +797,11 @@ export interface components {
          * @enum {string}
          */
         Side: "BUY" | "SELL";
+        /** TokenCreate */
+        TokenCreate: {
+            /** Name */
+            name: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -777,11 +926,42 @@ export interface operations {
             };
         };
     };
-    auth_status_api_auth_status_get: {
+    signup_api_auth_signup_post: {
         parameters: {
-            query?: {
-                token?: string | null;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Credentials"];
             };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tokens_api_auth_tokens_get: {
+        parameters: {
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
@@ -810,16 +990,383 @@ export interface operations {
             };
         };
     };
-    logout_api_auth__broker__logout_post: {
+    new_token_api_auth_tokens_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_token_api_auth_tokens__token_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                token_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    supported_brokers_api_accounts_brokers_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_accounts_api_accounts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_account_api_accounts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_account_api_accounts__account_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_account_api_accounts__account_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_account_api_accounts__account_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    paste_access_token_api_accounts__account_id__access_token_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessToken"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    broker_logout_api_accounts__account_id__broker_logout_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reconnect_api_accounts__account_id__reconnect_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    broker_login_api_accounts__account_id__broker_login_get: {
         parameters: {
             query?: {
-                token?: string | null;
+                redirect?: boolean;
             };
             header?: {
                 authorization?: string | null;
             };
             path: {
-                broker: string;
+                account_id: number;
             };
             cookie?: never;
         };
@@ -845,149 +1392,18 @@ export interface operations {
             };
         };
     };
-    fyers_login_api_auth_fyers_login_get: {
-        parameters: {
-            query?: {
-                redirect?: boolean;
-                token?: string | null;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    fyers_callback_api_auth_fyers_callback_get: {
-        parameters: {
-            query?: {
-                auth_code?: string;
-                state?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    zerodha_login_api_auth_zerodha_login_get: {
-        parameters: {
-            query?: {
-                redirect?: boolean;
-                token?: string | null;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    zerodha_callback_api_auth_zerodha_callback_get: {
-        parameters: {
-            query?: {
-                request_token?: string;
-                state?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    quotes_api_market_quotes_get: {
+    quotes_api_accounts__account_id__market_quotes_get: {
         parameters: {
             query: {
                 /** @description Comma-separated, e.g. NSE:SBIN-EQ,NSE:TCS-EQ */
                 symbols: string;
-                token?: string | null;
             };
             header?: {
                 authorization?: string | null;
             };
-            path?: never;
+            path: {
+                account_id: number;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -1012,7 +1428,7 @@ export interface operations {
             };
         };
     };
-    candles_api_market_candles_get: {
+    candles_api_accounts__account_id__market_candles_get: {
         parameters: {
             query: {
                 symbol: string;
@@ -1022,12 +1438,13 @@ export interface operations {
                 start?: string | null;
                 /** @description Last day (IST), inclusive; default: today */
                 end?: string | null;
-                token?: string | null;
             };
             header?: {
                 authorization?: string | null;
             };
-            path?: never;
+            path: {
+                account_id: number;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -1052,15 +1469,15 @@ export interface operations {
             };
         };
     };
-    list_orders_api_orders_get: {
+    list_orders_api_accounts__account_id__orders_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
-            path?: never;
+            path: {
+                account_id: number;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -1085,15 +1502,15 @@ export interface operations {
             };
         };
     };
-    place_order_api_orders_post: {
+    place_order_api_accounts__account_id__orders_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
-            path?: never;
+            path: {
+                account_id: number;
+            };
             cookie?: never;
         };
         requestBody: {
@@ -1122,18 +1539,18 @@ export interface operations {
             };
         };
     };
-    history_api_orders_history_get: {
+    history_api_accounts__account_id__orders_history_get: {
         parameters: {
             query?: {
-                broker?: string | null;
                 symbol?: string | null;
                 limit?: number;
-                token?: string | null;
             };
             header?: {
                 authorization?: string | null;
             };
-            path?: never;
+            path: {
+                account_id: number;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -1158,16 +1575,15 @@ export interface operations {
             };
         };
     };
-    cancel_order_api_orders__order_id__delete: {
+    cancel_order_api_accounts__account_id__orders__order_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
                 order_id: string;
+                account_id: number;
             };
             cookie?: never;
         };
@@ -1193,17 +1609,15 @@ export interface operations {
             };
         };
     };
-    order_events_api_orders__order_id__events_get: {
+    order_events_api_accounts__account_id__orders__order_id__events_get: {
         parameters: {
-            query?: {
-                broker?: string | null;
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
                 order_id: string;
+                account_id: number;
             };
             cookie?: never;
         };
@@ -1229,15 +1643,15 @@ export interface operations {
             };
         };
     };
-    list_positions_api_account_positions_get: {
+    list_positions_api_accounts__account_id__positions_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
-            path?: never;
+            path: {
+                account_id: number;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -1262,15 +1676,15 @@ export interface operations {
             };
         };
     };
-    funds_api_account_funds_get: {
+    funds_api_accounts__account_id__funds_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
-            path?: never;
+            path: {
+                account_id: number;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -1298,9 +1712,8 @@ export interface operations {
     open_trades_api_trades_open_get: {
         parameters: {
             query?: {
-                broker?: string | null;
+                account_id?: number | null;
                 symbol?: string | null;
-                token?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -1333,14 +1746,13 @@ export interface operations {
     closed_trades_api_trades_closed_get: {
         parameters: {
             query?: {
-                broker?: string | null;
+                account_id?: number | null;
                 symbol?: string | null;
                 /** @description closed at or after (ISO 8601) */
                 since?: string | null;
                 /** @description closed before (ISO 8601) */
                 until?: string | null;
                 limit?: number;
-                token?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -1372,9 +1784,7 @@ export interface operations {
     };
     trade_detail_api_trades__position_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
@@ -1409,7 +1819,7 @@ export interface operations {
         parameters: {
             query?: {
                 include_hidden?: boolean;
-                token?: string | null;
+                account_id?: number | null;
             };
             header?: {
                 authorization?: string | null;
@@ -1441,9 +1851,7 @@ export interface operations {
     };
     add_instance_api_strategies_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
@@ -1476,11 +1884,40 @@ export interface operations {
             };
         };
     };
+    stop_all_api_strategies_stop_all_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_instance_api_strategies__instance_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
@@ -1513,9 +1950,7 @@ export interface operations {
     };
     archive_instance_api_strategies__instance_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
@@ -1548,9 +1983,7 @@ export interface operations {
     };
     update_instance_api_strategies__instance_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
@@ -1587,9 +2020,7 @@ export interface operations {
     };
     start_instance_api_strategies__instance_id__start_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
@@ -1622,9 +2053,7 @@ export interface operations {
     };
     stop_instance_api_strategies__instance_id__stop_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
@@ -1655,44 +2084,10 @@ export interface operations {
             };
         };
     };
-    stop_all_api_strategies_stop_all_post: {
-        parameters: {
-            query?: {
-                token?: string | null;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_signals_api_strategies__instance_id__signals_get: {
         parameters: {
             query?: {
                 limit?: number;
-                token?: string | null;
             };
             header?: {
                 authorization?: string | null;

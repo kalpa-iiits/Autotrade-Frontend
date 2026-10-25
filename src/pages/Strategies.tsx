@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { accountName, useCurrentAccount } from '../accounts'
 import { api, errorMessage, unwrap } from '../api/client'
-import type { Instance, OrdersMessage, Signal, StrategiesList } from '../api/types'
-import { Badge, Card, Empty, ErrorBox, fmtNum, fmtTime, statusTone, useLoad } from '../components/ui'
+import type { Account, Instance, OrdersMessage, Signal, StrategiesList } from '../api/types'
+import { Badge, Card, Empty, ErrorBox, NeedAccount, fmtNum, fmtTime, statusTone, useLoad } from '../components/ui'
 import { useLive } from '../live'
 
 export default function Strategies() {
-  const list = useLoad(() => unwrap<StrategiesList>(api.GET('/api/strategies')))
+  const account = useCurrentAccount()
+  if (!account) return <NeedAccount title="Strategies" />
+  return <AccountStrategies key={account.id} account={account} />
+}
+
+function AccountStrategies({ account }: { account: Account }) {
+  const list = useLoad(() =>
+    unwrap<StrategiesList>(api.GET('/api/strategies', { params: { query: { account_id: account.id } } })),
+  )
   const [error, setError] = useState<string | null>(null)
   const [openSignals, setOpenSignals] = useState<number | null>(null)
   // Latest pushed signal, handed to the open signal list.
@@ -47,7 +56,7 @@ export default function Strategies() {
   }
 
   async function stopAll() {
-    if (!window.confirm('Stop ALL running strategies? Orders already at the broker are not cancelled.')) return
+    if (!window.confirm('Stop ALL your running strategies, on every account? Orders already at the broker are not cancelled.')) return
     await run(async () => {
       const r = await unwrap<{ stopped: unknown }>(api.POST('/api/strategies/stop-all'))
       const n = Array.isArray(r.stopped) ? r.stopped.length : r.stopped
@@ -62,12 +71,12 @@ export default function Strategies() {
   return (
     <div className="stack">
       <Card
-        title="Strategies"
+        title={`Strategies — ${accountName(account)}`}
         actions={
           <>
             <button className="link" onClick={() => void list.reload()}>Refresh</button>
-            <button className="danger" onClick={() => void stopAll()}>
-              Stop all{running ? ` (${running})` : ''}
+            <button className="danger" onClick={() => void stopAll()} title="Every running strategy on all your accounts">
+              Stop all (all accounts){running ? ` — ${running} here` : ''}
             </button>
           </>
         }
@@ -75,7 +84,8 @@ export default function Strategies() {
         <ErrorBox error={list.error ?? error} />
         {d && (
           <p className="muted">
-            Logic, size, limits and mode are defined in backend code; here you choose symbol and timeframe.{' '}
+            Logic, size, limits and mode are defined in backend code; here you run them on this account and choose
+            symbol and timeframe.{' '}
             Live trading switch (AUTOTRADE_STRATEGIES_LIVE):{' '}
             {d.live_trading_enabled ? (
               <Badge tone="bad">ON — live instances place real orders</Badge>
@@ -84,7 +94,7 @@ export default function Strategies() {
             )}
           </p>
         )}
-        {d?.strategies.length === 0 && <Empty>No instances yet.</Empty>}
+        {d?.strategies.length === 0 && <Empty>No strategies on this account yet. Add one below.</Empty>}
         {d?.strategies.map((inst) => (
           <InstanceRow
             key={inst.id}
@@ -100,7 +110,7 @@ export default function Strategies() {
         ))}
       </Card>
 
-      {d && <AddInstance data={d} onAdded={() => void list.reload()} />}
+      {d && <AddInstance account={account} data={d} onAdded={() => void list.reload()} />}
     </div>
   )
 }
@@ -146,7 +156,7 @@ function InstanceRow({
   function start() {
     if (inst.mode === 'live') {
       const msg = liveEnabled
-        ? `#${inst.id} ${inst.label} is in LIVE mode and will place REAL orders (${inst.quantity} per trade) on ${inst.symbol}. Start?`
+        ? `#${inst.id} ${inst.label} is in LIVE mode and will place REAL orders (${inst.quantity} per trade) on ${inst.symbol} with this account's broker. Start?`
         : `#${inst.id} ${inst.label} is in LIVE mode. The global live switch is off, so its signals will be blocked. Start anyway?`
       if (!window.confirm(msg)) return
     }
@@ -307,7 +317,7 @@ function SignalList({ instanceId, pushed }: { instanceId: number; pushed: Signal
   )
 }
 
-function AddInstance({ data, onAdded }: { data: StrategiesList; onAdded: () => void }) {
+function AddInstance({ account, data, onAdded }: { account: Account; data: StrategiesList; onAdded: () => void }) {
   const [key, setKey] = useState(data.deployments[0]?.key ?? '')
   const dep = data.deployments.find((d) => d.key === key)
   const [symbol, setSymbol] = useState(dep?.default_symbol ?? '')
@@ -330,7 +340,9 @@ function AddInstance({ data, onAdded }: { data: StrategiesList; onAdded: () => v
     setNote(null)
     try {
       const inst = await unwrap<Instance & { warning?: string | null }>(
-        api.POST('/api/strategies', { body: { deployment_key: key, symbol: symbol.trim(), timeframe } }),
+        api.POST('/api/strategies', {
+          body: { deployment_key: key, account_id: account.id, symbol: symbol.trim(), timeframe },
+        }),
       )
       setNote(`Added #${inst.id} on ${inst.symbol} ${inst.timeframe} (stopped).${inst.warning ? ` Warning: ${inst.warning}` : ''}`)
       onAdded()
@@ -343,7 +355,7 @@ function AddInstance({ data, onAdded }: { data: StrategiesList; onAdded: () => v
 
   if (data.deployments.length === 0) return null
   return (
-    <Card title="Add instance">
+    <Card title={`Add a strategy to ${account.label}`}>
       <form className="row-form" onSubmit={submit}>
         <label>
           Deployment

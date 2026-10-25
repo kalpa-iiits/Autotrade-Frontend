@@ -1,15 +1,26 @@
 import { useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { useAccounts, useCurrentAccount } from '../accounts'
 import { api, unwrap } from '../api/client'
-import type { BrokerStatus, Funds, OpenTrades, OrdersMessage } from '../api/types'
-import { Badge, Card, Empty, ErrorBox, Pnl, fmtNum, fmtTime, useLoad } from '../components/ui'
+import type { Account, Funds, OpenTrades, OrdersMessage } from '../api/types'
+import { Badge, Card, Empty, ErrorBox, NeedAccount, Pnl, fmtNum, fmtTime, useLoad } from '../components/ui'
 import { useLive } from '../live'
 
 export default function Dashboard() {
-  const status = useLoad(() => unwrap<BrokerStatus>(api.GET('/api/auth/status')))
-  const funds = useLoad(() => unwrap<Funds>(api.GET('/api/account/funds')))
-  const positions = useLoad(() => unwrap(api.GET('/api/account/positions')))
-  const trades = useLoad(() => unwrap<OpenTrades>(api.GET('/api/trades/open')))
+  const account = useCurrentAccount()
+  if (!account) return <NeedAccount title="Dashboard" />
+  // Keyed by account: switching accounts starts every card fresh.
+  return <AccountDashboard key={account.id} account={account} />
+}
+
+function AccountDashboard({ account }: { account: Account }) {
+  const { reload: reloadAccounts } = useAccounts()
+  const path = { params: { path: { account_id: account.id } } }
+  const funds = useLoad(() => unwrap<Funds>(api.GET('/api/accounts/{account_id}/funds', path)))
+  const positions = useLoad(() => unwrap(api.GET('/api/accounts/{account_id}/positions', path)))
+  const trades = useLoad(() =>
+    unwrap<OpenTrades>(api.GET('/api/trades/open', { params: { query: { account_id: account.id } } })),
+  )
 
   // Refresh account data shortly after fills (several updates can arrive together).
   const timer = useRef<number | undefined>(undefined)
@@ -28,33 +39,36 @@ export default function Dashboard() {
   )
   useLive(onMessage)
 
-  const s = status.data
+  const conn = account.connection?.broker
   return (
     <div className="grid">
-      <Card title="Broker" actions={<button className="link" onClick={() => void status.reload()}>Refresh</button>}>
-        <ErrorBox error={status.error} />
-        {s && (
-          <dl className="kv">
-            <dt>Active broker</dt>
-            <dd>{s.broker}</dd>
-            <dt>Connected</dt>
-            <dd>
-              {s.connected ? <Badge tone="good">connected</Badge> : <Badge tone="bad">not connected</Badge>}
-              {s.reason && <span className="muted"> {s.reason}</span>}
-            </dd>
-            <dt>Logged in today</dt>
-            <dd>
-              {Object.entries(s.logged_in_today).map(([b, ok]) => (
-                <Badge key={b} tone={ok ? 'good' : ''}>
-                  {b}: {ok ? 'yes' : 'no'}
-                </Badge>
-              ))}
-            </dd>
-          </dl>
-        )}
-        {s && !s.connected && (
+      <Card title="Broker account" actions={<button className="link" onClick={() => void reloadAccounts()}>Refresh</button>}>
+        <dl className="kv">
+          <dt>Account</dt>
+          <dd>
+            {account.label} <Badge>{account.broker}</Badge>
+          </dd>
+          <dt>Connected</dt>
+          <dd>
+            {conn?.connected ? <Badge tone="good">connected</Badge> : <Badge tone="bad">not connected</Badge>}
+            {conn && !conn.connected && conn.reason && <span className="muted"> {conn.reason}</span>}
+          </dd>
+          {account.needs_daily_login && (
+            <>
+              <dt>Logged in today</dt>
+              <dd>{account.logged_in_today ? <Badge tone="good">yes</Badge> : <Badge>no</Badge>}</dd>
+            </>
+          )}
+          {conn?.last_tick_at !== undefined && (
+            <>
+              <dt>Last tick</dt>
+              <dd>{fmtTime(conn.last_tick_at)}</dd>
+            </>
+          )}
+        </dl>
+        {!conn?.connected && (
           <p>
-            <Link to="/settings">Log in to the broker</Link>
+            <Link to="/accounts">{account.needs_daily_login ? 'Log in to the broker' : 'Manage accounts'}</Link>
           </p>
         )}
       </Card>

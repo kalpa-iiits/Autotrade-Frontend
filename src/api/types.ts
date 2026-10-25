@@ -9,13 +9,54 @@ export type Position = Schemas['Position']
 export type Side = Schemas['Side']
 export type OrderType = Schemas['OrderType']
 
-export type Broker = 'fyers' | 'zerodha'
+export type BrokerName = 'paper' | 'fyers' | 'zerodha'
 
-export interface BrokerStatus {
-  broker: string
-  connected: boolean
-  reason: string | null
-  logged_in_today: Record<Broker, boolean>
+/** What each broker needs (GET /api/accounts/brokers), for the "add account" form. */
+export interface BrokerSpec {
+  credentials: string[]
+  options: Record<string, { type?: string; enum?: string[]; default?: unknown; description?: string; title?: string }>
+  daily_login: boolean
+}
+export type BrokerSpecs = Record<BrokerName, BrokerSpec>
+
+/** One account's live connection (owner only). */
+export interface Connection {
+  broker: {
+    name: string
+    connected: boolean
+    reason: string | null
+    last_resync_at: string | null
+    last_resync_error: string | null
+    resynced_orders: number
+    ticks_received?: number
+    last_tick_at?: string | null
+    stream_error?: string | null
+  }
+  ledger: { healthy: boolean; unsaved_orders: number; last_error: string | null }
+  websockets: { orders: number; tickers: number }
+}
+
+/** A broker account as the API shows it: never any secrets. */
+export interface Account {
+  id: number
+  broker: BrokerName
+  label: string
+  options: Record<string, unknown>
+  /** Field -> masked identifier, "set", or null (missing). null for brokers without credentials. */
+  credentials: Record<string, string | null> | null
+  credentials_error: string | null
+  needs_daily_login: boolean
+  logged_in_today: boolean | null
+  created_at: string
+  connection: Connection | null
+}
+
+export interface ApiTokenInfo {
+  id: number
+  name: string
+  prefix: string
+  created_at: string
+  last_used_at: string | null
 }
 
 export interface Funds {
@@ -25,6 +66,7 @@ export interface Funds {
 }
 
 export interface HistoryOrder extends Order {
+  account_id: number
   broker: string
 }
 
@@ -34,6 +76,7 @@ export interface OrderEvent {
 
 export interface TradePosition {
   id: number
+  account_id: number
   broker: string
   symbol: string
   direction: 'LONG' | 'SHORT'
@@ -75,6 +118,7 @@ export interface Deployment {
 
 export interface Instance {
   id: number
+  account_id: number
   deployment_key: string
   strategy: string
   description: string
@@ -94,6 +138,7 @@ export interface Instance {
   last_price: number | null
   orders_today: number | null
   pending_order_id: string | null
+  dropped_ticks: number | null
 }
 
 export interface StrategiesList {
@@ -126,15 +171,15 @@ export interface Candle {
   volume: number
 }
 
-// WebSocket pushes on /api/ws/orders and /api/ws/tickers.
+// WebSocket pushes on an account's /api/accounts/{id}/ws/orders and /ws/tickers.
 export type OrdersMessage =
-  | { type: 'welcome'; broker: string }
-  | { type: 'order_update'; order: Order }
-  | { type: 'strategy_signal'; signal: Signal }
-  | { type: 'strategy_status'; instance_id: number; status: InstanceStatus; error: string | null }
+  | { type: 'welcome'; account_id: number; broker: string }
+  | { type: 'order_update'; account_id: number; order: Order }
+  | { type: 'strategy_signal'; account_id: number; signal: Signal }
+  | { type: 'strategy_status'; account_id: number; instance_id: number; status: InstanceStatus; error: string | null }
   | { type: 'ack' | 'error' | 'pong'; action?: string; request_id?: string; [key: string]: unknown }
 
 export type TickerMessage =
-  | { type: 'welcome'; broker: string }
-  | { type: 'tick'; symbol: string; ltp: number }
+  | { type: 'welcome'; account_id: number; broker: string }
+  | { type: 'tick'; account_id: number; symbol: string; ltp: number }
   | { type: 'ack' | 'error' | 'pong'; action?: string; request_id?: string; [key: string]: unknown }

@@ -55,7 +55,7 @@ const STATUS_TEXT: Record<number, string> = {
   422: 'Invalid request',
   429: 'Too many attempts',
   502: 'Broker API error',
-  503: 'Broker not connected — log in to the broker in Settings',
+  503: 'Broker not connected — log in to the broker on the Accounts page',
 }
 
 /**

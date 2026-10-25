@@ -8,23 +8,28 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { accountName, useCurrentAccount } from '../accounts'
 import { api, unwrap } from '../api/client'
 import { ReconnectingSocket, type SocketState } from '../api/socket'
-import type { Candle, TickerMessage } from '../api/types'
+import type { Account, Candle, TickerMessage } from '../api/types'
 import { useAuth } from '../auth'
-import { Card, Empty, ErrorBox, fmtNum, useLoad } from '../components/ui'
+import { Card, Empty, ErrorBox, NeedAccount, fmtNum, useLoad } from '../components/ui'
 
-const WATCHLIST_KEY = 'autotrade.watchlist'
-const DEFAULT_WATCHLIST = ['NSE:SBIN-EQ', 'NSE:RELIANCE-EQ', 'NSE:INFY-EQ']
+// One watchlist per account: symbol formats differ by broker (Kite has no "-EQ").
+const watchlistKey = (accountId: number) => `autotrade.watchlist.${accountId}`
 
-function loadWatchlist(): string[] {
+function defaultWatchlist(broker: string): string[] {
+  return broker === 'zerodha' ? ['NSE:SBIN', 'NSE:RELIANCE', 'NSE:INFY'] : ['NSE:SBIN-EQ', 'NSE:RELIANCE-EQ', 'NSE:INFY-EQ']
+}
+
+function loadWatchlist(account: Account): string[] {
   try {
-    const saved = JSON.parse(localStorage.getItem(WATCHLIST_KEY) ?? 'null') as unknown
+    const saved = JSON.parse(localStorage.getItem(watchlistKey(account.id)) ?? 'null') as unknown
     if (Array.isArray(saved) && saved.every((s) => typeof s === 'string')) return saved
   } catch {
     /* ignore */
   }
-  return DEFAULT_WATCHLIST
+  return defaultWatchlist(account.broker)
 }
 
 interface Quote {
@@ -35,8 +40,15 @@ interface Quote {
 }
 
 export default function Market() {
+  const account = useCurrentAccount()
+  if (!account) return <NeedAccount title="Market" />
+  // Keyed by account: its own tickers socket, watchlist and chart.
+  return <AccountMarket key={account.id} account={account} />
+}
+
+function AccountMarket({ account }: { account: Account }) {
   const { signedOut } = useAuth()
-  const [watchlist, setWatchlist] = useState<string[]>(loadWatchlist)
+  const [watchlist, setWatchlist] = useState<string[]>(() => loadWatchlist(account))
   const [quotes, setQuotes] = useState<Record<string, Quote>>({})
   const [socketState, setSocketState] = useState<SocketState>('closed')
   const [socketError, setSocketError] = useState<string | null>(null)
@@ -46,7 +58,7 @@ export default function Market() {
 
   const [socket] = useState(
     () =>
-      new ReconnectingSocket<TickerMessage>('/api/ws/tickers', {
+      new ReconnectingSocket<TickerMessage>(`/api/accounts/${account.id}/ws/tickers`, {
         // Resubscribe the whole watchlist on every (re)connect.
         onOpen: (s) => s.send({ action: 'subscribe', symbols: watchRef.current }),
         onUnauthorized: () => signedOut(),
@@ -78,11 +90,11 @@ export default function Market() {
   useEffect(() => {
     watchRef.current = watchlist
     try {
-      localStorage.setItem(WATCHLIST_KEY, JSON.stringify(watchlist))
+      localStorage.setItem(watchlistKey(account.id), JSON.stringify(watchlist))
     } catch {
       /* ignore */
     }
-  }, [watchlist])
+  }, [watchlist, account.id])
 
   function add(e: FormEvent) {
     e.preventDefault()
@@ -104,7 +116,7 @@ export default function Market() {
       <Card
         title={
           <>
-            Watchlist <span className={`live ${socketState}`}>● {socketState === 'open' ? 'live' : socketState}</span>
+            Watchlist — {accountName(account)} <span className={`live ${socketState}`}>● {socketState === 'open' ? 'live' : socketState}</span>
           </>
         }
         actions={
@@ -160,7 +172,7 @@ export default function Market() {
         )}
       </Card>
 
-      <CandleChart symbol={chartSymbol} onSymbol={setChartSymbol} lastPrice={quotes[chartSymbol]?.ltp} />
+      <CandleChart accountId={account.id} symbol={chartSymbol} onSymbol={setChartSymbol} lastPrice={quotes[chartSymbol]?.ltp} />
     </div>
   )
 }
@@ -182,7 +194,17 @@ function isoDay(d: Date) {
   return d.toISOString().slice(0, 10)
 }
 
-function CandleChart({ symbol, onSymbol, lastPrice }: { symbol: string; onSymbol: (s: string) => void; lastPrice?: number }) {
+function CandleChart({
+  accountId,
+  symbol,
+  onSymbol,
+  lastPrice,
+}: {
+  accountId: number
+  symbol: string
+  onSymbol: (s: string) => void
+  lastPrice?: number
+}) {
   const [resolution, setResolution] = useState<'1' | 'D'>('1')
   const [draft, setDraft] = useState(symbol)
   const [days, setDays] = useState(3)
@@ -202,8 +224,8 @@ function CandleChart({ symbol, onSymbol, lastPrice }: { symbol: string; onSymbol
     const end = new Date()
     const start = new Date(end.getTime() - days * 86400_000)
     return unwrap<Candle[]>(
-      api.GET('/api/market/candles', {
-        params: { query: { symbol, resolution, start: isoDay(start), end: isoDay(end) } },
+      api.GET('/api/accounts/{account_id}/market/candles', {
+        params: { path: { account_id: accountId }, query: { symbol, resolution, start: isoDay(start), end: isoDay(end) } },
       }),
     )
   }, [symbol, resolution, days])

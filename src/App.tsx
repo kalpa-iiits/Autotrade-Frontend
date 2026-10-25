@@ -1,9 +1,11 @@
 import { useCallback, useState } from 'react'
 import { BrowserRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { AccountsProvider, accountName, useAccounts } from './accounts'
 import type { OrdersMessage } from './api/types'
 import { AuthProvider, useAuth } from './auth'
 import { fmtNum } from './components/ui'
 import { LiveProvider, useLive, useLiveState } from './live'
+import Accounts from './pages/Accounts'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
 import Market from './pages/Market'
@@ -27,9 +29,11 @@ function Gate() {
   if (user === undefined) return <div className="center muted">Loading…</div>
   if (user === null) return <Login />
   return (
-    <LiveProvider>
-      <Shell />
-    </LiveProvider>
+    <AccountsProvider>
+      <LiveProvider>
+        <Shell />
+      </LiveProvider>
+    </AccountsProvider>
   )
 }
 
@@ -39,6 +43,7 @@ const NAV = [
   ['/market', 'Market'],
   ['/trades', 'Trades'],
   ['/strategies', 'Strategies'],
+  ['/accounts', 'Accounts'],
   ['/settings', 'Settings'],
 ] as const
 
@@ -55,6 +60,7 @@ function Shell() {
           </NavLink>
         ))}
         <span className="spacer" />
+        <AccountSwitcher />
         <span className={`live ${live}`} title={`Order updates socket: ${live}`}>
           ● {live === 'open' ? 'live' : live}
         </span>
@@ -70,12 +76,40 @@ function Shell() {
           <Route path="/market" element={<Market />} />
           <Route path="/trades" element={<Trades />} />
           <Route path="/strategies" element={<Strategies />} />
+          <Route path="/accounts" element={<Accounts />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       <Toasts />
     </div>
+  )
+}
+
+/** Which broker account the trading pages work on. */
+function AccountSwitcher() {
+  const { accounts, current, select } = useAccounts()
+  if (!accounts?.length) {
+    return (
+      <NavLink to="/accounts" className="muted">
+        No broker account yet
+      </NavLink>
+    )
+  }
+  return (
+    <select
+      className="small account-switch"
+      aria-label="Broker account"
+      value={current?.id}
+      onChange={(e) => select(Number(e.target.value))}
+    >
+      {accounts.map((a) => (
+        <option key={a.id} value={a.id}>
+          {accountName(a)}
+          {a.connection?.broker.connected ? '' : ' — not connected'}
+        </option>
+      ))}
+    </select>
   )
 }
 
