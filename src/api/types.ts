@@ -188,6 +188,9 @@ export interface CatalogStrategy {
   max_order_qty: number
   max_position: number
   max_orders_per_day: number
+  backtest_initial_capital: number | null
+  backtest_fixed_quantity: number | null
+  backtest_commission_per_unit: number
 }
 
 export interface TesterStats {
@@ -231,6 +234,7 @@ export interface BacktestTrade {
   /** Most it was in profit / in loss while open (positive amounts). */
   run_up: number
   drawdown: number
+  commission: number
   cum_pnl: number
   entry_reason: string | null
   exit_reason: string | null
@@ -242,8 +246,10 @@ export interface Performance {
   symbol: string
   timeframe: string
   capital: number
-  /** Order size, % of equity per entry. */
+  /** Order size, % of equity per entry; ignored when fixed_quantity is set. */
   size_pct: number
+  fixed_quantity: number | null
+  commission_per_unit: number
   start: string
   end: string
   data_from: string

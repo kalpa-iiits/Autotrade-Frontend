@@ -7,16 +7,15 @@ export const DEFAULT_CAPITAL = 500_000
 /** Order size, % of equity: each entry is sized from the capital (compounding), like TradingView. */
 export const DEFAULT_SIZE_PCT = 100
 export const DEFAULT_RANGE: RangePreset = '1Y'
-export const DEFAULT_TEST_TIMEFRAME = '5m'
 
 /** What every strategy is tested on unless the user picks another instrument: NIFTY 50, in the broker's own spelling. */
 export function testSymbol(account: Pick<Account, 'broker'>): string {
   return account.broker === 'zerodha' ? 'NSE:NIFTY 50' : 'NSE:NIFTY50-INDEX'
 }
 
-/** The tester's default timeframe for a strategy: 5m when it supports it, else what it's built for. */
+/** Start on the timeframe the strategy was written for. */
 export function testTimeframe(s: CatalogStrategy): string {
-  return s.timeframes.includes(DEFAULT_TEST_TIMEFRAME) ? DEFAULT_TEST_TIMEFRAME : s.default_timeframe
+  return s.default_timeframe
 }
 
 export const RANGE_PRESETS = {

@@ -18,7 +18,8 @@ function useTesterParams(s: CatalogStrategy, account: Account) {
   const fallback = presetRange(DEFAULT_RANGE)
   const range: DateRange =
     preset === 'custom' ? { start: params.get('start') ?? fallback.start, end: params.get('end') ?? fallback.end } : presetRange(preset in RANGE_PRESETS ? preset : DEFAULT_RANGE)
-  const capital = Number(params.get('capital')) > 0 ? Number(params.get('capital')) : DEFAULT_CAPITAL
+  const defaultCapital = s.backtest_initial_capital ?? DEFAULT_CAPITAL
+  const capital = Number(params.get('capital')) > 0 ? Number(params.get('capital')) : defaultCapital
   const size = Number(params.get('size'))
   return {
     symbol: params.get('symbol') ?? testSymbol(account),
@@ -76,12 +77,15 @@ export default function StrategyTester({ s, account }: { s: CatalogStrategy; acc
           key={`${t.capital}-${t.sizePct}`}
           capital={t.capital}
           sizePct={t.sizePct}
-          onPick={(c, size) => t.set({ capital: c === DEFAULT_CAPITAL ? null : String(c), size: size === DEFAULT_SIZE_PCT ? null : String(size) })}
+          fixedQuantity={s.backtest_fixed_quantity}
+          commissionPerUnit={s.backtest_commission_per_unit}
+          onPick={(c, size) => t.set({ capital: c === (s.backtest_initial_capital ?? DEFAULT_CAPITAL) ? null : String(c), size: size === DEFAULT_SIZE_PCT ? null : String(size) })}
         />
         {perf.loading && d && <span className="small muted">Updating…</span>}
       </div>
 
       {blocked && <Note tone="warn">Log in to {brokerTitle(account.broker)} on the Accounts page to load its price history for the tester.</Note>}
+      {account.broker === 'paper' && <Note tone="warn">Paper-account history is synthetic test data, not NSE market data. Its performance cannot match TradingView; use a connected Fyers or Zerodha account for a market-data comparison.</Note>}
       <ErrorBox error={perf.error} />
       {perf.loading && !d && !blocked && (
         <div className="tester-loading muted small">
@@ -100,7 +104,8 @@ export default function StrategyTester({ s, account }: { s: CatalogStrategy; acc
           {t.view === 'summary' && <Summary d={d} />}
           {t.view === 'trades' && <Trades d={d} />}
           <div className="tiny muted">
-            {shortSymbol(d.symbol)} · {d.timeframe} · {fmtDate(d.data_from)} – {fmtDate(d.data_to)} · {fmtQty(d.candles)} one-minute candles · ₹{fmtQty(d.capital)} capital, {d.size_pct}% of equity per trade
+            {shortSymbol(d.symbol)} · {d.timeframe} · {fmtDate(d.data_from)} – {fmtDate(d.data_to)} · {fmtQty(d.candles)} one-minute candles · ₹{fmtQty(d.capital)} capital, {d.fixed_quantity ? `${fmtQty(d.fixed_quantity)} units per trade` : `${d.size_pct}% of equity per trade`}
+            {d.commission_per_unit ? ` · ₹${fmtNum(d.commission_per_unit)} per unit per order` : ''}
             {d.blocked_signals ? ` · ${d.blocked_signals} signals blocked by risk limits` : ''}. {d.assumptions.join('. ')}. Past results don’t guarantee future returns.
           </div>
         </div>
@@ -172,13 +177,13 @@ function RangePicker({ preset, range, onPick }: { preset: RangePreset | 'custom'
   )
 }
 
-function CapitalPicker({ capital, sizePct, onPick }: { capital: number; sizePct: number; onPick: (c: number, sizePct: number) => void }) {
+function CapitalPicker({ capital, sizePct, fixedQuantity, commissionPerUnit, onPick }: { capital: number; sizePct: number; fixedQuantity: number | null; commissionPerUnit: number; onPick: (c: number, sizePct: number) => void }) {
   const [value, setValue] = useState(String(capital))
   const [size, setSize] = useState(String(sizePct))
   return (
     <Dropdown
       title="Initial capital and order size"
-      label={<span><span className="muted">₹</span> {fmtCompact(capital).replace('₹', '')} <span className="tiny muted">INR · {sizePct}% of equity</span></span>}
+      label={<span><span className="muted">₹</span> {fmtCompact(capital).replace('₹', '')} <span className="tiny muted">INR · {fixedQuantity ? `${fixedQuantity} fixed units` : `${sizePct}% of equity`}</span></span>}
     >
       {(close) => (
         <form
@@ -198,14 +203,18 @@ function CapitalPicker({ capital, sizePct, onPick }: { capital: number; sizePct:
               <button key={v} type="button" className="sm" onClick={() => setValue(String(v))}>{fmtCompact(v)}</button>
             ))}
           </div>
-          <div className="caps tiny" style={{ marginTop: 6 }}>Order size (% of equity)</div>
-          <input className="mono" inputMode="decimal" value={size} onChange={(e) => setSize(e.target.value.replace(/[^\d.]/g, ''))} />
-          <div className="row" style={{ gap: 6 }}>
-            {[25, 50, 100].map((v) => (
-              <button key={v} type="button" className="sm" onClick={() => setSize(String(v))}>{v}%</button>
-            ))}
-          </div>
-          <div className="tiny muted">Each entry buys as many units as this share of the current equity (capital plus closed P&amp;L) pays for, so results compound.</div>
+          {fixedQuantity ? (
+            <div className="tiny muted">This strategy uses the Pine source’s fixed {fixedQuantity}-unit order size{commissionPerUnit ? ` and ₹${commissionPerUnit} commission per unit per order` : ''}.</div>
+          ) : <>
+            <div className="caps tiny" style={{ marginTop: 6 }}>Order size (% of equity)</div>
+            <input className="mono" inputMode="decimal" value={size} onChange={(e) => setSize(e.target.value.replace(/[^\d.]/g, ''))} />
+            <div className="row" style={{ gap: 6 }}>
+              {[25, 50, 100].map((v) => (
+                <button key={v} type="button" className="sm" onClick={() => setSize(String(v))}>{v}%</button>
+              ))}
+            </div>
+            <div className="tiny muted">Each entry buys as many units as this share of the current equity (capital plus closed P&amp;L) pays for, so results compound.</div>
+          </>}
           <button type="submit" className="primary sm">Apply</button>
         </form>
       )}
