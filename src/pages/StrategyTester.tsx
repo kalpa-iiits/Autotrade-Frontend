@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { brokerTitle, needsLogin } from '../accounts'
-import type { Account, BacktestTrade, CatalogStrategy, Performance, TesterStats } from '../api/types'
+import type { Account, BacktestTrade, CatalogStrategy, InstrumentSuggestion, Performance, TesterStats } from '../api/types'
 import { Icon } from '../components/icons'
 import { TesterChart, type TesterSeries } from '../components/TesterChart'
-import { Empty, ErrorBox, Note, fmtCompact, fmtDate, fmtMoney, fmtNum, fmtQty, fmtTime, shortSymbol, useLoad } from '../components/ui'
-import { DEFAULT_CAPITAL, DEFAULT_RANGE, DEFAULT_SIZE_PCT, RANGE_PRESETS, loadMatrix, loadPerformance, presetRange, testSymbol, testTimeframe, type DateRange, type RangePreset } from '../strategies'
-import { useSummary } from '../summary'
-import { loadWatchlist } from './Market'
+import { Empty, ErrorBox, Note, fmtCompact, fmtDate, fmtMoney, fmtNum, fmtQty, fmtTime, shortSymbol, useDebounced, useLoad } from '../components/ui'
+import { DEFAULT_CAPITAL, DEFAULT_RANGE, DEFAULT_SIZE_PCT, RANGE_PRESETS, loadMatrix, loadPerformance, presetRange, searchInstruments, testSymbol, testTimeframe, type DateRange, type RangePreset } from '../strategies'
 
 type View = 'overview' | 'summary' | 'trades'
 
@@ -59,14 +57,13 @@ export default function StrategyTester({ s, account }: { s: CatalogStrategy; acc
             </button>
           ))}
         </div>
-        <SymbolPicker key={t.symbol} s={s} account={account} symbol={t.symbol} onPick={(symbol) => t.set({ symbol })} />
+        <SymbolPicker key={t.symbol} account={account} symbol={t.symbol} onPick={(symbol) => t.set({ symbol })} />
         <Dropdown label={<span className="mono">{t.timeframe}</span>} icon="market" title="Timeframe">
           {(close) => (
             <div className="menu-list">
               {s.timeframes.map((tf) => (
                 <button key={tf} className={`menu-item ${tf === t.timeframe ? 'active' : ''}`} onClick={() => { t.set({ tf }); close() }}>
                   <span className="mono grow">{tf}</span>
-                  {tf === s.default_timeframe && <span className="tiny muted">built for</span>}
                 </button>
               ))}
             </div>
@@ -222,13 +219,20 @@ function CapitalPicker({ capital, sizePct, fixedQuantity, commissionPerUnit, onP
   )
 }
 
-function SymbolPicker({ s, account, symbol, onPick }: { s: CatalogStrategy; account: Account; symbol: string; onPick: (s: string) => void }) {
-  const { strategies } = useSummary()
+function SymbolPicker({ account, symbol, onPick }: { account: Account; symbol: string; onPick: (s: string) => void }) {
   const [draft, setDraft] = useState(symbol)
-  const suggestions = useMemo(() => {
-    const own = (strategies.data?.strategies ?? []).filter((i) => i.deployment_key === s.key).map((i) => i.symbol)
-    return [...new Set([s.default_symbol, ...own, ...loadWatchlist(account)])].slice(0, 10)
-  }, [s, account, strategies.data])
+  const [suggestions, setSuggestions] = useState<InstrumentSuggestion[]>([])
+  const query = useDebounced(draft.trim(), 250)
+  useEffect(() => {
+    if (!query) return
+    const controller = new AbortController()
+    searchInstruments(account.id, query, controller.signal)
+      .then(setSuggestions)
+      .catch((err) => {
+        if (!(err instanceof DOMException && err.name === 'AbortError')) setSuggestions([])
+      })
+    return () => controller.abort()
+  }, [account.id, query])
   function submit(e: FormEvent) {
     e.preventDefault()
     if (draft.trim() && draft.trim() !== symbol) onPick(draft.trim())
@@ -237,7 +241,7 @@ function SymbolPicker({ s, account, symbol, onPick }: { s: CatalogStrategy; acco
     <form className="input-wrap symbol-input" onSubmit={submit}>
       <Icon name="search" size={14} />
       <input className="mono" value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={submit} aria-label="Instrument" list="tester-symbols" />
-      <datalist id="tester-symbols">{suggestions.map((x) => <option key={x} value={x} />)}</datalist>
+      <datalist id="tester-symbols">{suggestions.map((item) => <option key={item.symbol} value={item.symbol}>{item.ticker} — {item.name}</option>)}</datalist>
     </form>
   )
 }
@@ -352,7 +356,7 @@ function Compare({ s, account, t }: { s: CatalogStrategy; account: Account; t: R
                 if (!c) return null
                 return (
                   <tr key={tf} className={`cell ${tf === t.timeframe ? 'on' : ''}`} onClick={() => t.set({ tf })}>
-                    <td className="mono">{tf}{tf === s.default_timeframe && <span className="tiny muted"> · built for</span>}</td>
+                    <td className="mono">{tf}</td>
                     <td className={`num ${c.net_pnl > 0 ? 'pos' : c.net_pnl < 0 ? 'neg' : ''}`}>{fmtMoney(c.net_pnl, { sign: true })}<div className="sub">{pct(c.net_pnl_pct, true)}</div></td>
                     <td className="num">{fmtMoney(c.max_drawdown)}<div className="sub">{pct(c.max_drawdown_pct)}</div></td>
                     <td className="num">{pct(c.win_rate)}<div className="sub">{c.wins}/{c.trades}</div></td>

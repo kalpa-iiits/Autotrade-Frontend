@@ -118,7 +118,7 @@ export interface Deployment {
   strategy: string
   description: string
   mode: Mode
-  default_symbol: string
+  default_symbol: string | null
   default_timeframe: string
   timeframes: string[]
 }
@@ -154,6 +154,14 @@ export interface StrategiesList {
   strategies: Instance[]
 }
 
+/** A broker-native NSE search result. `symbol` is ready to send back to that broker. */
+export interface InstrumentSuggestion {
+  symbol: string
+  ticker: string
+  name: string
+  kind: 'stock' | 'index'
+}
+
 export type RuleKind = 'entry_long' | 'entry_short' | 'exit' | 'risk' | 'filter'
 
 /** A strategy's trigger conditions in plain words, with its params filled in. */
@@ -181,7 +189,7 @@ export interface CatalogStrategy {
   rules: StrategyRule[]
   params: StrategyParam[]
   mode: Mode
-  default_symbol: string
+  default_symbol: string | null
   default_timeframe: string
   timeframes: string[]
   quantity: number

@@ -84,9 +84,14 @@ function LibraryCard({ s, account, instances }: { s: CatalogStrategy; account: A
   const running = mine.filter((i) => i.status === 'running')
   const report = `/strategies/${s.key}`
 
-  /** On: run it on this account (adding it on the shown symbol and its own timeframe if needed). Off: stop it. */
+  /** On: start an existing instance. Strategies without an instrument suggestion open their
+   * detail page so the user can choose the instrument and timeframe before deployment. */
   async function toggle(on: boolean) {
     if (!account) return
+    if (on && mine.length === 0 && !symbol) {
+      navigate(report)
+      return
+    }
     if (on && s.mode === 'live') {
       const live = strategies.data?.live_trading_enabled
       const msg = live
@@ -119,7 +124,7 @@ function LibraryCard({ s, account, instances }: { s: CatalogStrategy; account: A
       <div className="between" style={{ alignItems: 'flex-start' }}>
         <div className="grow">
           <h3 className="mono ellipsis"><Link to={report} className="plain-link">{s.label}</Link></h3>
-          <div className="tiny muted mono" style={{ marginTop: 2 }}>{s.strategy} · built for {s.default_timeframe}</div>
+          <div className="tiny muted mono" style={{ marginTop: 2 }}>{s.strategy} · {s.timeframes.join(' · ')}</div>
         </div>
         {account && (
           <label className="deploy-toggle" onClick={(e) => e.stopPropagation()} title={needsLogin(account) ? `Log in to ${brokerTitle(account.broker)} first` : `${deployed ? 'Stop' : 'Start'} on ${account.label}: ${target}`}>

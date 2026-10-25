@@ -1,6 +1,6 @@
 // Shared by the strategy list and a strategy's page: loading the catalog and the strategy tester.
 import { api, unwrap } from './api/client'
-import type { Account, CatalogStrategy, Instance, Performance, PerformanceMatrix } from './api/types'
+import type { Account, CatalogStrategy, Instance, InstrumentSuggestion, Performance, PerformanceMatrix } from './api/types'
 import { istDay } from './components/ui'
 
 export const DEFAULT_CAPITAL = 500_000
@@ -13,7 +13,7 @@ export function testSymbol(account: Pick<Account, 'broker'>): string {
   return account.broker === 'zerodha' ? 'NSE:NIFTY 50' : 'NSE:NIFTY50-INDEX'
 }
 
-/** Start on the timeframe the strategy was written for. */
+/** Start with the strategy's initial timeframe; the user can select any supported timeframe. */
 export function testTimeframe(s: CatalogStrategy): string {
   return s.default_timeframe
 }
@@ -44,6 +44,16 @@ export function loadCatalog() {
   return unwrap<CatalogStrategy[]>(api.GET('/api/strategies/catalog'))
 }
 
+export async function searchInstruments(accountId: number, query: string, signal?: AbortSignal): Promise<InstrumentSuggestion[]> {
+  const params = new URLSearchParams({ account_id: String(accountId), q: query, limit: '12' })
+  const response = await fetch(`/api/strategies/instruments/search?${params}`, { credentials: 'include', signal })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { detail?: string } | null
+    throw new Error(body?.detail || `Instrument search failed (HTTP ${response.status})`)
+  }
+  return response.json() as Promise<InstrumentSuggestion[]>
+}
+
 export function loadPerformance(key: string, accountId: number, symbol: string, timeframe: string, range: DateRange, capital = DEFAULT_CAPITAL, sizePct = DEFAULT_SIZE_PCT) {
   return unwrap<Performance>(
     api.GET('/api/strategies/catalog/{key}/performance', {
@@ -60,7 +70,7 @@ export function loadMatrix(key: string, accountId: number, symbol: string, range
   )
 }
 
-/** The symbol a strategy is deployed on: the user's own instance of it if there is one, else the code default. */
+/** A prior instance or optional suggestion; blank means the user must choose an instrument. */
 export function preferredSymbol(s: CatalogStrategy, instances: Instance[] | undefined): string {
-  return instances?.find((i) => i.deployment_key === s.key)?.symbol ?? s.default_symbol
+  return instances?.find((i) => i.deployment_key === s.key)?.symbol ?? s.default_symbol ?? ''
 }
