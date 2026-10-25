@@ -55,10 +55,16 @@ function AccountMarket({ account }: { account: Account }) {
   const [selected, setSelected] = useState(() => params.get('symbol') ?? watchlist[0] ?? 'NSE:SBIN-EQ')
   const watched = useMemo(() => (watchlist.includes(selected) ? watchlist : [...watchlist, selected]), [watchlist, selected])
   const { quotes, state, error } = useQuotes(account.id, watched)
-  const stats = useLoad(async () => {
-    const entries = await Promise.all(watched.map(async (s) => [s, await loadDayStats(account.id, s).catch(() => null)] as const))
-    return Object.fromEntries(entries) as Record<string, DayStats | null>
-  }, [watched.join(',')])
+  // Day stats (change %, sparkline) need a history request each: load them for the selected
+  // symbol only, not the whole watchlist at once (Fyers allows 5 requests a second).
+  const [stats, setStats] = useState<Record<string, DayStats | null>>({})
+  useEffect(() => {
+    let current = true
+    loadDayStats(account.id, selected)
+      .then((day) => current && setStats((s) => ({ ...s, [selected]: day })))
+      .catch(() => current && setStats((s) => ({ ...s, [selected]: null })))
+    return () => { current = false }
+  }, [account.id, selected])
 
   // Opened from search (?symbol=...): show it, then clean the URL.
   useEffect(() => {
@@ -116,7 +122,7 @@ function AccountMarket({ account }: { account: Account }) {
           {watchlist.length === 0 && <Empty>Add a symbol to watch.</Empty>}
           {watchlist.map((sym) => {
             const q = quotes[sym]
-            const day = stats.data?.[sym]
+            const day = stats[sym]
             const dir = q?.prev === undefined ? '' : q.ltp > q.prev ? 'up' : q.ltp < q.prev ? 'down' : ''
             const change = q && day?.prevClose ? ((q.ltp - day.prevClose) / day.prevClose) * 100 : null
             const spark = [...(day?.closes.slice(0, -1) ?? []), ...(q?.history ?? [])]
@@ -138,7 +144,7 @@ function AccountMarket({ account }: { account: Account }) {
           })}
         </Card>
 
-        <SymbolPanel account={account} symbol={selected} ltp={quotes[selected]?.ltp} day={stats.data?.[selected] ?? null} onRemove={watchlist.includes(selected) ? () => remove(selected) : undefined} />
+        <SymbolPanel account={account} symbol={selected} ltp={quotes[selected]?.ltp} day={stats[selected] ?? null} onRemove={watchlist.includes(selected) ? () => remove(selected) : undefined} />
       </div>
     </Page>
   )
