@@ -92,5 +92,22 @@ export function useCurrentAccount(): Account | null {
 }
 
 export function accountName(a: Pick<Account, 'id' | 'label' | 'broker'>): string {
-  return `${a.label} (${a.broker})`
+  return `${a.label} (${a.broker === 'paper' ? 'paper' : brokerTitle(a.broker)})`
+}
+
+export function brokerTitle(broker: string): string {
+  return broker === 'fyers' ? 'Fyers' : broker === 'zerodha' ? 'Zerodha' : broker === 'paper' ? 'Paper' : broker
+}
+
+/** A broker account whose daily login is still missing today: its strategies can't run. */
+export function needsLogin(a: Account): boolean {
+  return a.needs_daily_login && !a.logged_in_today
+}
+
+/** Start the broker's daily login; the broker sends the browser back to this app afterwards. */
+export async function startBrokerLogin(accountId: number): Promise<void> {
+  const { url } = await unwrap<{ url: string }>(
+    api.GET('/api/accounts/{account_id}/broker-login', { params: { path: { account_id: accountId }, query: { redirect: false } } }),
+  )
+  window.location.assign(url) // comes back to AUTOTRADE_FRONTEND_URL with ?broker_login=...
 }

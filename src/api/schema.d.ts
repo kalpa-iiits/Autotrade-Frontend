@@ -730,6 +730,9 @@ export interface components {
             order_type: components["schemas"]["OrderType"];
             /** Limit Price */
             limit_price?: number | null;
+            /** Trigger Price */
+            trigger_price?: number | null;
+            product?: components["schemas"]["Product"] | null;
             /** @default OPEN */
             status: components["schemas"]["OrderStatus"];
             /**
@@ -763,6 +766,9 @@ export interface components {
             order_type: components["schemas"]["OrderType"];
             /** Limit Price */
             limit_price?: number | null;
+            /** Trigger Price */
+            trigger_price?: number | null;
+            product?: components["schemas"]["Product"] | null;
             /** Client Order Id */
             client_order_id?: string | null;
         };
@@ -775,7 +781,7 @@ export interface components {
          * OrderType
          * @enum {string}
          */
-        OrderType: "MARKET" | "LIMIT";
+        OrderType: "MARKET" | "LIMIT" | "SL" | "SL-M";
         /** PasswordChange */
         PasswordChange: {
             /** Current Password */
@@ -792,6 +798,12 @@ export interface components {
             /** Avg Price */
             avg_price: number;
         };
+        /**
+         * Product
+         * @description Per order; missing means the account's default product (its options).
+         * @enum {string}
+         */
+        Product: "INTRADAY" | "DELIVERY";
         /**
          * Side
          * @enum {string}

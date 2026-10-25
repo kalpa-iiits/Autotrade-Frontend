@@ -8,6 +8,7 @@ export type OrderCreate = Schemas['OrderCreate']
 export type Position = Schemas['Position']
 export type Side = Schemas['Side']
 export type OrderType = Schemas['OrderType']
+export type Product = Schemas['Product']
 
 export type BrokerName = 'paper' | 'fyers' | 'zerodha'
 
@@ -47,6 +48,8 @@ export interface Account {
   credentials_error: string | null
   needs_daily_login: boolean
   logged_in_today: boolean | null
+  /** IST day (YYYY-MM-DD) of the last broker login; null if never or no daily login. */
+  last_login_date: string | null
   created_at: string
   connection: Connection | null
 }
@@ -68,6 +71,8 @@ export interface Funds {
 export interface HistoryOrder extends Order {
   account_id: number
   broker: string
+  /** Label of the strategy instance that placed it; null when placed by hand. */
+  strategy: string | null
 }
 
 export interface OrderEvent {
@@ -89,6 +94,8 @@ export interface TradePosition {
   realized_pnl: number
   opened_at: string
   closed_at: string | null
+  /** Label of the strategy instance whose order opened it; null when opened by hand. */
+  strategy: string | null
   last_price?: number | null
   unrealized_pnl?: number | null
 }

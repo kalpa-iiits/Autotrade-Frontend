@@ -71,13 +71,19 @@ hand-written in `src/api/types.ts`. Update them there if the backend changes.
 | `src/auth.tsx` | `GET /api/auth/me` on load, login / sign-up / logout |
 | `src/accounts.tsx` | your broker accounts, the selected one (remembered), broker-login return |
 | `src/live.tsx` | the selected account's `/api/accounts/{id}/ws/orders` connection (`order_update`, `strategy_signal`, `strategy_status`) |
-| `src/pages/Accounts.tsx` | add / edit / delete broker accounts (credentials write-only), daily broker login, paste token, reconnect |
-| `src/pages/Dashboard.tsx` | the account's connection, funds, positions, open trades with unrealized P&L |
-| `src/pages/Orders.tsx` | place market/limit, cancel, today's book (live), history |
-| `src/pages/Market.tsx` | watchlist (per account) over the account's tickers socket, candle chart (lightweight-charts) |
-| `src/pages/Trades.tsx` | closed trades with totals, for the selected account or all of yours |
-| `src/pages/Strategies.tsx` | the account's instances: add, edit symbol/timeframe while stopped, start/stop (confirm for live), remove, signals, Stop all (all your accounts) |
-| `src/pages/Settings.tsx` | personal API tokens (shown once), change password |
+| `src/summary.tsx` | the selected account's funds, today's orders, positions, open / today's closed trades and strategies, shared by the sidebar and pages and refreshed after socket pushes |
+| `src/quotes.ts` | live prices over the account's tickers socket; day stats (open, range, previous close) from daily candles |
+| `src/market.ts` | NSE session clock in IST (weekends only; holidays are not known) |
+| `src/reminders.ts` | browser notifications (login reminder, strategy errors, fills) while the app is open |
+| `src/components/` | `ui.tsx` (formatting, pills, switches, cards), `charts.tsx` (area chart, sparkline), `Page.tsx` (title row + paper/live band), `icons.tsx` |
+| `src/App.tsx` | sidebar (account switcher, nav, Stop all), ⌘K search, toasts |
+| `src/pages/Dashboard.tsx` | ready-to-trade checks, P&L / cash / strategies / orders, account value (rebuilt from closed trades), positions with Exit, activity |
+| `src/pages/Orders.tsx` | order ticket (market, limit, SL, SL-M; intraday / delivery), today's book with source strategy, history |
+| `src/pages/Market.tsx` | watchlist with sparklines, candles 1m–1W (aggregated in the browser) with volume and SMA 20/50, day stats |
+| `src/pages/Trades.tsx` | closed trades: win rate, profit factor, drawdown, cumulative P&L, daily calendar, per strategy, CSV export |
+| `src/pages/Strategies.tsx` | the account's instances as cards: start/stop switch (confirm for live), edit while stopped, signal log, remove; add from the code's deployments |
+| `src/pages/Accounts.tsx` | account cards (daily login, reset paper balance, paste token, reconnect, delete); add / edit accounts (credentials write-only) |
+| `src/pages/Settings.tsx` | personal API tokens (shown once), change password, reminders |
 
 Orders, cancels, live-mode strategy starts and Stop all ask for confirmation first. On a Fyers or
 Zerodha account they act on that real broker account.

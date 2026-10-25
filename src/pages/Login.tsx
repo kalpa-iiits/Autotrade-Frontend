@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError, errorMessage } from '../api/client'
 import { useAuth } from '../auth'
+import { Icon } from '../components/icons'
 
 export default function Login() {
   const { login, signup } = useAuth()
@@ -60,12 +61,17 @@ export default function Login() {
   return (
     <div className="center">
       <form className="card login" onSubmit={submit}>
-        <h1>AutoTrade</h1>
-        <label>
+        <div className="brand" style={{ padding: 0 }}>
+          <span className="brand-mark">
+            <Icon name="logo" size={17} />
+          </span>
+          AutoTrade
+        </div>
+        <label className="field">
           Username
           <input autoFocus autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required />
         </label>
-        <label>
+        <label className="field">
           Password
           <input
             type="password"
@@ -77,18 +83,20 @@ export default function Login() {
           />
         </label>
         {signingUp && (
-          <label>
+          <label className="field">
             Repeat password
             <input type="password" autoComplete="new-password" value={repeat} onChange={(e) => setRepeat(e.target.value)} required />
           </label>
         )}
         {error && (
-          <div className="error" role="alert">
-            {error}
-            {wait > 0 && <div>Locked out — try again in {wait}s.</div>}
+          <div className="alert bad" role="alert">
+            <div>
+              {error}
+              {wait > 0 && <div>Locked out — try again in {wait}s.</div>}
+            </div>
           </div>
         )}
-        <button type="submit" disabled={busy || wait > 0}>
+        <button type="submit" className="primary lg" disabled={busy || wait > 0}>
           {busy ? (signingUp ? 'Creating…' : 'Signing in…') : signingUp ? 'Create user' : 'Sign in'}
         </button>
         <button type="button" className="link" onClick={switchMode}>
