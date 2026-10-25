@@ -123,6 +123,8 @@ export interface Deployment {
   timeframes: string[]
 }
 
+export type SizeMode = 'fixed' | 'capital'
+
 export interface Instance {
   id: number
   account_id: number
@@ -140,6 +142,14 @@ export interface Instance {
   max_order_qty: number
   max_position: number
   max_orders_per_day: number
+  /** Position sizing chosen in the app; the code's max_order_qty and max_position cap both. */
+  size_mode: SizeMode
+  /** Units per trade in fixed mode; null = the strategy's default `quantity`. */
+  fixed_quantity: number | null
+  /** Rupees per trade in capital mode. */
+  capital_per_trade: number | null
+  /** Units the next entry would trade at the last price; null while capital sizing has no price. */
+  sized_quantity: number | null
   last_error: string | null
   position: number | null
   last_price: number | null

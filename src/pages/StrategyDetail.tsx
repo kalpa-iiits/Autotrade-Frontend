@@ -1,14 +1,16 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useCurrentAccount } from '../accounts'
 import { api, errorMessage, unwrap } from '../api/client'
-import type { Account, CatalogStrategy, Instance, InstrumentSuggestion, RuleKind } from '../api/types'
+import type { Account, CatalogStrategy, Instance, RuleKind } from '../api/types'
 import { Icon, type IconName } from '../components/icons'
 import { Page } from '../components/Page'
-import { Card, Empty, ErrorBox, NeedAccount, Note, Pill, Seg, fmtQty, shortSymbol, symbolKind, useDebounced, useLoad } from '../components/ui'
+import { Card, Empty, ErrorBox, NeedAccount, Note, Pill, Seg, fmtQty, shortSymbol, symbolKind, useLoad } from '../components/ui'
 import StrategyTester from './StrategyTester'
 import { useSummary } from '../summary'
-import { searchInstruments } from '../strategies'
+import { sizingBody, sizingDraft, sizingValid, type SizingDraft } from '../strategies'
+import { InstrumentInput } from '../components/InstrumentInput'
+import { SizingFields } from '../components/SizingFields'
 
 const RULE_LOOK: Record<RuleKind, { icon: IconName; color: string }> = {
   entry_long: { icon: 'market', color: 'var(--profit)' },
@@ -141,25 +143,9 @@ function DeployPanel({ s, account }: { s: CatalogStrategy; account: Account }) {
   const navigate = useNavigate()
   const mine = (strategies.data?.strategies ?? []).filter((i) => i.deployment_key === s.key)
   const [symbol, setSymbol] = useState(mine[0]?.symbol ?? s.default_symbol ?? '')
-  const [showInstrumentSuggestions, setShowInstrumentSuggestions] = useState(false)
-  const [matchingInstruments, setMatchingInstruments] = useState<InstrumentSuggestion[]>([])
-  const [instrumentSearchError, setInstrumentSearchError] = useState<string | null>(null)
-  const instrumentQuery = useDebounced(symbol.trim(), 250)
-  useEffect(() => {
-    if (!instrumentQuery) return
-    const controller = new AbortController()
-    searchInstruments(account.id, instrumentQuery, controller.signal).then((items) => {
-      setMatchingInstruments(items)
-      setInstrumentSearchError(null)
-    }).catch((err) => {
-      if (err instanceof DOMException && err.name === 'AbortError') return
-      setMatchingInstruments([])
-      setInstrumentSearchError(errorMessage(err))
-    })
-    return () => controller.abort()
-  }, [account.id, instrumentQuery])
   const requestedTimeframe = params.get('tf')
   const [timeframe, setTimeframe] = useState(requestedTimeframe && s.timeframes.includes(requestedTimeframe) ? requestedTimeframe : s.default_timeframe)
+  const [sizing, setSizing] = useState<SizingDraft>(sizingDraft())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
@@ -171,9 +157,9 @@ function DeployPanel({ s, account }: { s: CatalogStrategy; account: Account }) {
     setNote(null)
     try {
       const inst = await unwrap<Instance & { warning?: string | null }>(
-        api.POST('/api/strategies', { body: { deployment_key: s.key, account_id: account.id, symbol: symbol.trim(), timeframe } }),
+        api.POST('/api/strategies', { body: { deployment_key: s.key, account_id: account.id, symbol: symbol.trim(), timeframe, ...sizingBody(sizing) } }),
       )
-      setNote(`Added on ${shortSymbol(inst.symbol)} ${inst.timeframe}, stopped. Start it from the Strategies page when you’re ready.${inst.warning ? ` Warning: ${inst.warning}` : ''}`)
+      setNote(`Added on ${shortSymbol(inst.symbol)} ${inst.timeframe}, stopped. Start it from My strategies when you’re ready.${inst.warning ? ` Warning: ${inst.warning}` : ''}`)
       reload()
     } catch (err) {
       setError(errorMessage(err))
@@ -192,59 +178,16 @@ function DeployPanel({ s, account }: { s: CatalogStrategy; account: Account }) {
             <div className="row" style={{ alignItems: 'flex-end', gap: 12 }}>
               <label className="field grow" style={{ minWidth: 200 }}>
                 Instrument
-                <div className="dropdown">
-                  <input
-                    className="mono"
-                    style={{ width: '100%' }}
-                    value={symbol}
-                    onChange={(e) => {
-                      const next = e.target.value.toUpperCase()
-                      setSymbol(next)
-                      if (!next.trim()) setMatchingInstruments([])
-                      setShowInstrumentSuggestions(true)
-                    }}
-                    onFocus={() => setShowInstrumentSuggestions(true)}
-                    onBlur={() => setShowInstrumentSuggestions(false)}
-                    placeholder="Start typing an instrument"
-                    autoComplete="off"
-                    role="combobox"
-                    aria-expanded={showInstrumentSuggestions && matchingInstruments.length > 0}
-                    aria-controls={`deploy-instruments-${s.key}`}
-                    required
-                  />
-                  {showInstrumentSuggestions && matchingInstruments.length > 0 && (
-                    <div className="dropdown-menu menu-list" id={`deploy-instruments-${s.key}`} role="listbox" style={{ width: '100%' }}>
-                      {matchingInstruments.map((candidate) => (
-                        <button
-                          key={candidate.symbol}
-                          type="button"
-                          className="menu-item"
-                          role="option"
-                          onMouseDown={(e) => {
-                            e.preventDefault()
-                            setSymbol(candidate.symbol)
-                            setShowInstrumentSuggestions(false)
-                          }}
-                        >
-                          <span className="grow" style={{ textAlign: 'left' }}>
-                            <span className="mono">{candidate.ticker}</span>
-                            <span className="tiny muted" style={{ display: 'block' }}>{candidate.name}</span>
-                          </span>
-                          <span className="tiny muted">{candidate.kind}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <InstrumentInput accountId={account.id} value={symbol} onChange={setSymbol} listId={`deploy-instruments-${s.key}`} />
               </label>
               <div className="stack" style={{ gap: 6 }}>
                 <span style={{ fontSize: 12, color: 'var(--muted)' }}>Timeframe</span>
                 <Seg label="Timeframe" mono value={timeframe} onChange={setTimeframe} options={s.timeframes.map((t) => ({ value: t, label: t }))} />
               </div>
-              <button type="submit" className="primary" disabled={busy || !symbol.trim()}>{busy ? 'Adding…' : 'Add strategy'}</button>
+              <button type="submit" className="primary" disabled={busy || !symbol.trim() || !sizingValid(sizing)}>{busy ? 'Adding…' : 'Add strategy'}</button>
             </div>
-            {symbol.trim() && instrumentSearchError && <span className="field-note" style={{ color: 'var(--loss)' }}>{instrumentSearchError}</span>}
             {symbol && <span className="field-note">{symbolKind(symbol)}</span>}
+            <SizingFields draft={sizing} onChange={setSizing} defaultQty={s.quantity} cap={Math.min(s.max_order_qty, s.max_position)} />
           </form>
           <ErrorBox error={error} />
           {note && <Note onClose={() => setNote(null)}>{note}</Note>}
@@ -253,7 +196,7 @@ function DeployPanel({ s, account }: { s: CatalogStrategy; account: Account }) {
           <div className="caps tiny" style={{ padding: '14px 16px 6px' }}>On this account · {mine.length}</div>
           {mine.length === 0 && <div className="small muted" style={{ padding: '6px 16px 16px' }}>Not running anywhere on {account.label} yet.</div>}
           {mine.map((i) => (
-            <button key={i.id} className="list-row instance-row" onClick={() => navigate('/strategies')}>
+            <button key={i.id} className="list-row instance-row" onClick={() => navigate('/my-strategies')}>
               <span className={`dot ${i.status === 'running' ? 'good' : i.status === 'error' ? 'bad' : ''}`} />
               <span className="mono grow ellipsis" style={{ textAlign: 'left' }}>{shortSymbol(i.symbol)} · {i.timeframe}</span>
               <span className="small muted">{i.status}</span>

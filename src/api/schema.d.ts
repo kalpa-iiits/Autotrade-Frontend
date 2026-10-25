@@ -539,6 +539,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/strategies/instruments/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Instrument Search
+         * @description NSE stocks and indexes in the selected broker's exact symbol format.
+         */
+        get: operations["instrument_search_api_strategies_instruments_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/strategies/catalog/{key}": {
         parameters: {
             query?: never;
@@ -566,9 +586,9 @@ export interface paths {
         /**
          * Performance
          * @description Strategy tester: backtest on one timeframe over a date range (default: the last year) of
-         *     the account's broker history, each trade sized at `size_pct` of the equity. Summary for all /
-         *     long / short trades, every simulated trade with its run-up and drawdown, and buy & hold for
-         *     comparison. Cached for the IST day.
+         *     the account's broker history. Entries use a fixed `quantity` or `size_pct` of equity
+         *     (`size_mode`; by default the deployment's fixed tester quantity, if it has one). Summary for all / long / short trades, every simulated trade with
+         *     its run-up and drawdown, and buy & hold for comparison. Cached for the IST day.
          */
         get: operations["performance_api_strategies_catalog__key__performance_get"];
         put?: never;
@@ -640,7 +660,7 @@ export interface paths {
         head?: never;
         /**
          * Update Instance
-         * @description Change an instance's symbol and/or timeframe. It must be stopped.
+         * @description Change an instance's symbol, timeframe and/or position sizing. It must be stopped.
          */
         patch: operations["update_instance_api_strategies__instance_id__patch"];
         trace?: never;
@@ -773,6 +793,12 @@ export interface components {
         };
         /** InstanceCreate */
         InstanceCreate: {
+            /** Size Mode */
+            size_mode?: ("fixed" | "capital") | null;
+            /** Fixed Quantity */
+            fixed_quantity?: number | null;
+            /** Capital Per Trade */
+            capital_per_trade?: number | string | null;
             /** Deployment Key */
             deployment_key: string;
             /** Account Id */
@@ -784,6 +810,12 @@ export interface components {
         };
         /** InstanceUpdate */
         InstanceUpdate: {
+            /** Size Mode */
+            size_mode?: ("fixed" | "capital") | null;
+            /** Fixed Quantity */
+            fixed_quantity?: number | null;
+            /** Capital Per Trade */
+            capital_per_trade?: number | string | null;
             /** Symbol */
             symbol?: string | null;
             /** Timeframe */
@@ -2007,6 +2039,41 @@ export interface operations {
             };
         };
     };
+    instrument_search_api_strategies_instruments_search_get: {
+        parameters: {
+            query: {
+                account_id: number;
+                q: string;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_catalog_api_strategies_catalog__key__get: {
         parameters: {
             query?: never;
@@ -2051,6 +2118,10 @@ export interface operations {
                 capital?: number;
                 /** @description Order size, % of equity */
                 size_pct?: number;
+                /** @description pct: size_pct of equity; fixed: `quantity` units (default: the strategy's) */
+                size_mode?: ("pct" | "fixed") | null;
+                /** @description Units per entry when size_mode=fixed */
+                quantity?: number | null;
             };
             header?: {
                 authorization?: string | null;
@@ -2091,6 +2162,8 @@ export interface operations {
                 end?: string | null;
                 capital?: number;
                 size_pct?: number;
+                size_mode?: ("pct" | "fixed") | null;
+                quantity?: number | null;
             };
             header?: {
                 authorization?: string | null;

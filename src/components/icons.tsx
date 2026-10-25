@@ -6,6 +6,7 @@ const PATHS = {
   orders: 'M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01',
   trades: 'M7 4v16M7 4l-3 3M7 4l3 3M17 20V4M17 20l-3-3M17 20l3-3',
   strategies: 'M13 2L4 14h7l-1 8 9-12h-7z',
+  mine: 'M4 6h11M4 12h11M4 18h7M16 14v7l5-3.5z',
   accounts: 'M3 21h18M4 10h16M5 10v8M9.5 10v8M14.5 10v8M19 10v8M12 3l9 5H3z',
   settings: 'M4 7h10M18 7h2M4 17h4M12 17h8M14 4v6M8 14v6',
   search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM21 21l-5-5',

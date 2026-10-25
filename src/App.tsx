@@ -15,7 +15,7 @@ import Login from './pages/Login'
 import Market, { loadWatchlist } from './pages/Market'
 import Orders from './pages/Orders'
 import Settings from './pages/Settings'
-import Strategies from './pages/Strategies'
+import Strategies, { MyStrategies } from './pages/Strategies'
 import StrategyDetail from './pages/StrategyDetail'
 import Trades from './pages/Trades'
 import { loadPrefs, notify } from './reminders'
@@ -57,6 +57,7 @@ function Shell() {
           <Route path="/market" element={<Market />} />
           <Route path="/trades" element={<Trades />} />
           <Route path="/strategies" element={<Strategies />} />
+          <Route path="/my-strategies" element={<MyStrategies />} />
           <Route path="/strategies/:key" element={<StrategyDetail />} />
           <Route path="/accounts" element={<Accounts />} />
           <Route path="/settings" element={<Settings />} />
@@ -113,10 +114,11 @@ function Sidebar() {
       <NavItem to="/orders" icon="orders" label="Orders" meta={orders.data?.length ? <span className="meta">{orders.data.length}</span> : null} />
       <NavItem to="/trades" icon="trades" label="Trades" />
       <div className="nav-section caps">Automate</div>
+      <NavItem to="/strategies" icon="strategies" label="Strategies" />
       <NavItem
-        to="/strategies"
-        icon="strategies"
-        label="Strategies"
+        to="/my-strategies"
+        icon="mine"
+        label="My strategies"
         meta={
           running ? (
             <span className="meta running">
@@ -346,6 +348,7 @@ function Palette() {
       ['/orders', 'Orders'],
       ['/trades', 'Trades'],
       ['/strategies', 'Strategies'],
+      ['/my-strategies', 'My strategies'],
       ['/accounts', 'Accounts'],
       ['/settings', 'Settings'],
     ].map(([to, label]) => ({ group: 'Pages', label, go: go(to) }))

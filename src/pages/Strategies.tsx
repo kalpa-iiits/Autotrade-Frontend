@@ -20,6 +20,7 @@ import {
   StatusPill,
   Switch,
   fmtCompact,
+  fmtMoney,
   fmtNum,
   fmtQty,
   fmtTime,
@@ -28,19 +29,35 @@ import {
   useLoad,
 } from '../components/ui'
 import { useLive } from '../live'
-import { DEFAULT_RANGE, loadCatalog, loadPerformance, preferredSymbol, presetRange, testSymbol, testTimeframe } from '../strategies'
+import { DEFAULT_RANGE, loadCatalog, loadPerformance, presetRange, testSymbol, testTimeframe, sizingBody, sizingDraft, sizingValid, type SizingDraft } from '../strategies'
 import { pnlByStrategy, useSummary } from '../summary'
+import { InstrumentInput } from '../components/InstrumentInput'
+import { SizingFields } from '../components/SizingFields'
 
 export default function Strategies() {
   const account = useCurrentAccount()
   return (
     <Page
       title="Strategies"
-      sub="Coded trading strategies — open one for its rules and backtested performance, then run it on an account."
+      sub="Coded trading strategies — open one for its rules and backtested performance, then add it to My strategies."
       band
       actions={<MarketPill />}
     >
       <Library account={account} />
+    </Page>
+  )
+}
+
+/** The strategy instances added on the selected account: start, stop, edit, signals. */
+export function MyStrategies() {
+  const account = useCurrentAccount()
+  return (
+    <Page
+      title="My strategies"
+      sub="Strategies you’ve added on this account — start or stop them, check their signals and today’s P&L."
+      band
+      actions={<MarketPill />}
+    >
       {account ? <AccountStrategies key={account.id} account={account} /> : <NeedAccount />}
     </Page>
   )
@@ -55,7 +72,7 @@ function Library({ account }: { account: Account | null | undefined }) {
   return (
     <>
       <ErrorBox error={catalog.error} />
-      <div className="grid-3">
+      <div className="stack">
         {catalog.data?.map((s) => (
           <LibraryCard key={`${s.key}-${account?.id}`} s={s} account={account} instances={strategies.data?.strategies} />
         ))}
@@ -67,89 +84,42 @@ function Library({ account }: { account: Account | null | undefined }) {
 
 function LibraryCard({ s, account, instances }: { s: CatalogStrategy; account: Account | null | undefined; instances: Instance[] | undefined }) {
   const navigate = useNavigate()
-  const { strategies, reload } = useSummary()
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const symbol = preferredSymbol(s, instances) // where Deploy runs it
   const tested = account ? testSymbol(account) : null // where the card's backtest runs: NIFTY 50
   const timeframe = testTimeframe(s)
   const canTest = !!account && !needsLogin(account)
   const perf = useLoad(
-    () => (canTest && tested ? loadPerformance(s.key, account.id, tested, timeframe, presetRange(DEFAULT_RANGE)) : Promise.resolve(undefined)),
+    () => (canTest && tested ? loadPerformance(s.key, account.id, tested, timeframe, presetRange(DEFAULT_RANGE), undefined, undefined, s.backtest_fixed_quantity) : Promise.resolve(undefined)),
     [s.key, account?.id, tested, timeframe, canTest],
   )
   const p = perf.data?.summary.all
   const curve = useMemo(() => [0, ...(perf.data?.trades.map((t) => t.cum_pnl) ?? [])], [perf.data])
-  const mine = (instances ?? []).filter((i) => i.deployment_key === s.key)
-  const running = mine.filter((i) => i.status === 'running')
+  const running = (instances ?? []).filter((i) => i.deployment_key === s.key && i.status === 'running').length
   const report = `/strategies/${s.key}`
-
-  /** On: start an existing instance. Strategies without an instrument suggestion open their
-   * detail page so the user can choose the instrument and timeframe before deployment. */
-  async function toggle(on: boolean) {
-    if (!account) return
-    if (on && mine.length === 0 && !symbol) {
-      navigate(report)
-      return
-    }
-    if (on && s.mode === 'live') {
-      const live = strategies.data?.live_trading_enabled
-      const msg = live
-        ? `${s.label} is in LIVE mode and will place REAL orders (${s.quantity} per trade) with ${account.label}. Start it?`
-        : `${s.label} is in LIVE mode. The server's live switch is off, so its signals will be blocked. Start anyway?`
-      if (!window.confirm(msg)) return
-    }
-    setBusy(true)
-    setError(null)
-    try {
-      if (on) {
-        const inst = mine.find((i) => i.status === 'stopped' || i.status === 'error') ??
-          (await unwrap<Instance>(api.POST('/api/strategies', { body: { deployment_key: s.key, account_id: account.id, symbol, timeframe: s.default_timeframe } })))
-        await unwrap(api.POST('/api/strategies/{instance_id}/start', { params: { path: { instance_id: inst.id } } }))
-      } else {
-        for (const inst of running) await unwrap(api.POST('/api/strategies/{instance_id}/stop', { params: { path: { instance_id: inst.id } } }))
-      }
-    } catch (e) {
-      setError(errorMessage(e))
-    } finally {
-      setBusy(false)
-      reload()
-    }
-  }
-
-  const deployed = running.length > 0
-  const target = deployed ? running.map((i) => `${shortSymbol(i.symbol)} ${i.timeframe}`).join(', ') : `${shortSymbol(mine.find((i) => i.status !== 'running')?.symbol ?? symbol)} ${mine.find((i) => i.status !== 'running')?.timeframe ?? s.default_timeframe}`
   return (
     <section className="card library-card" onClick={() => navigate(report)}>
-      <div className="between" style={{ alignItems: 'flex-start' }}>
-        <div className="grow">
+      <div className="library-info">
+        <div className="row" style={{ gap: 10, flexWrap: 'nowrap' }}>
           <h3 className="mono ellipsis"><Link to={report} className="plain-link">{s.label}</Link></h3>
-          <div className="tiny muted mono" style={{ marginTop: 2 }}>{s.strategy} · {s.timeframes.join(' · ')}</div>
+          {running > 0 && <Pill tone="good" dot="good">Running{running > 1 ? ` · ${running}` : ''}</Pill>}
         </div>
-        {account && (
-          <label className="deploy-toggle" onClick={(e) => e.stopPropagation()} title={needsLogin(account) ? `Log in to ${brokerTitle(account.broker)} first` : `${deployed ? 'Stop' : 'Start'} on ${account.label}: ${target}`}>
-            <span className="small">
-              {busy ? (deployed ? 'Stopping…' : 'Starting…') : deployed ? 'Deployed' : 'Deploy'}
-            </span>
-            <Switch on={deployed} label={deployed ? `Stop ${s.label}` : `Deploy ${s.label}`} onChange={(on) => void toggle(on)} disabled={busy || needsLogin(account)} />
-          </label>
-        )}
+        <p className="small muted library-desc">{s.description}</p>
+        <div className="row" style={{ gap: 6 }}>
+          {s.tags.map((t) => <span key={t} className="chip">{t}</span>)}
+        </div>
       </div>
-      <div className="row" style={{ gap: 6 }}>
-        {s.tags.map((t) => <span key={t} className="chip">{t}</span>)}
-      </div>
-      <p className="small muted">{s.description}</p>
-      <div className="inset stack tight" style={{ marginTop: 'auto' }}>
+      <div className="library-stats">
         <div className="between">
           <span className="caps tiny">Backtest · {DEFAULT_RANGE} · {tested ? shortSymbol(tested) : 'NIFTY 50'} · {timeframe}</span>
-          {curve.length > 1 && <Sparkline values={curve} width={80} height={22} />}
         </div>
         {p ? (
-          <div className="kv-grid" style={{ '--cols': 2 } as React.CSSProperties}>
-            <div><div className="k">Net P&amp;L</div><Pnl value={p.net_pnl} compact className="small" /></div>
-            <div><div className="k">Profitable</div><div className="v">{p.win_rate === null ? '—' : `${p.win_rate.toFixed(0)}%`}</div></div>
-            <div><div className="k">Trades</div><div className="v">{p.trades}</div></div>
-            <div><div className="k">Max DD</div><div className="v">{p.max_drawdown ? fmtCompact(-p.max_drawdown) : '—'}</div></div>
+          <div className="library-figures">
+            <div className="library-curve">{curve.length > 1 && <Sparkline values={curve} width={120} height={40} />}</div>
+            <div className="kv-grid" style={{ '--cols': 4 } as React.CSSProperties}>
+              <div><div className="k">Net P&amp;L</div><Pnl value={p.net_pnl} compact className="library-big" /></div>
+              <div><div className="k">Profitable</div><div className="v library-big">{p.win_rate === null ? '—' : `${p.win_rate.toFixed(0)}%`}</div></div>
+              <div><div className="k">Trades</div><div className="v library-big">{p.trades}</div></div>
+              <div><div className="k">Max DD</div><div className="v library-big">{p.max_drawdown ? fmtCompact(-p.max_drawdown) : '—'}</div></div>
+            </div>
           </div>
         ) : (
           <div className="small muted">
@@ -157,12 +127,10 @@ function LibraryCard({ s, account, instances }: { s: CatalogStrategy; account: A
           </div>
         )}
       </div>
-      {error && <div onClick={(e) => e.stopPropagation()}><ErrorBox error={error} /></div>}
-      <div className="library-actions" onClick={(e) => e.stopPropagation()}>
-        <Link to={report} className="button-link primary">
-          See performance report <Icon name="arrow" size={14} />
-        </Link>
-      </div>
+      <Link to={report} className="library-go" onClick={(e) => e.stopPropagation()}>
+        <span>See performance report</span>
+        <Icon name="arrow" size={16} />
+      </Link>
     </section>
   )
 }
@@ -196,7 +164,6 @@ function AccountStrategies({ account }: { account: Account }) {
       {d && <LiveSwitch on={d.live_trading_enabled} />}
       <ErrorBox error={list.error ?? error} />
 
-      <h2 style={{ fontSize: 17, marginTop: 8 }}>Running on {account.label}</h2>
       <div className="between">
         <Seg
           label="Filter"
@@ -215,12 +182,14 @@ function AccountStrategies({ account }: { account: Account }) {
 
       {d && insts.length === 0 && (
         <Card>
-          <Empty>No strategies on {account.label} yet. Open one of the strategies above and press Deploy.</Empty>
+          <Empty action={<Link to="/strategies"><button className="sm">Browse strategies</button></Link>}>
+            No strategies on {account.label} yet. Open one on the Strategies page and add it from its Deploy section.
+          </Empty>
         </Card>
       )}
       {d && insts.length > 0 && shown.length === 0 && <Card><Empty>No {filter} strategies.</Empty></Card>}
 
-      <div className="grid-3">
+      <div className="stack">
         {shown.map((inst) => (
           <InstanceCard
             key={inst.id}
@@ -301,6 +270,7 @@ function InstanceCard({
   const [editing, setEditing] = useState(false)
   const [symbol, setSymbol] = useState(inst.symbol)
   const [timeframe, setTimeframe] = useState(inst.timeframe)
+  const [sizing, setSizing] = useState<SizingDraft>(sizingDraft(inst))
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   const path = { params: { path: { instance_id: inst.id } } }
@@ -338,7 +308,7 @@ function InstanceCard({
     e.preventDefault()
     void act(async () => {
       const updated = await unwrap<Instance & { warning?: string | null }>(
-        api.PATCH('/api/strategies/{instance_id}', { ...path, body: { symbol: symbol.trim(), timeframe } }),
+        api.PATCH('/api/strategies/{instance_id}', { ...path, body: { symbol: symbol.trim(), timeframe, ...sizingBody(sizing) } }),
       )
       onChange(updated)
       setEditing(false)
@@ -358,47 +328,48 @@ function InstanceCard({
   const pos = inst.position ?? 0
   return (
     <section className="card strategy-card">
-      <div className="between" style={{ alignItems: 'flex-start' }}>
-        <div className="grow">
-          <div className="row" style={{ gap: 8 }}>
-            <h3 className="ellipsis"><Link to={`/strategies/${inst.deployment_key}?symbol=${encodeURIComponent(inst.symbol)}&tf=${inst.timeframe}`} className="plain-link">{inst.label}</Link></h3>
-            <Pill tone={inst.mode === 'live' ? 'bad' : undefined}>{inst.mode}</Pill>
-          </div>
-          <p className="small muted" style={{ marginTop: 6 }}>{inst.description}</p>
+      <div className="instance-main">
+        <div className="row" style={{ gap: 8, flexWrap: 'nowrap' }}>
+          <h3 className="ellipsis"><Link to={`/strategies/${inst.deployment_key}?symbol=${encodeURIComponent(inst.symbol)}&tf=${inst.timeframe}`} className="plain-link">{inst.label}</Link></h3>
+          <Pill tone={inst.mode === 'live' ? 'bad' : undefined}>{inst.mode}</Pill>
         </div>
-        <div className="row" style={{ flexWrap: 'nowrap', gap: 10 }}>
-          <span className={`small ${isRunning ? 'pos' : inst.status === 'error' ? 'neg' : 'muted'}`} style={{ fontWeight: 500 }}>
-            {isRunning ? 'Running' : inst.status === 'error' ? 'Error' : 'Stopped'}
-          </span>
-          <Switch on={isRunning} label={isRunning ? 'Stop' : 'Start'} onChange={toggle} disabled={busy || (!isRunning && (!stopped || blocked))} />
+        <p className="small muted instance-desc">{inst.description}</p>
+        <div className="actions">
+          <button className="sm" onClick={onSignals}>Signal log</button>
+          <button className="sm" disabled={busy || !stopped} onClick={() => setEditing(!editing)} title={stopped ? 'Change symbol or timeframe' : 'Stop it first'}>
+            Edit
+          </button>
+          <button className="link danger small" disabled={busy || !stopped} onClick={remove} title={stopped ? '' : 'Stop it first'}>
+            Remove
+          </button>
         </div>
       </div>
 
-      {editing ? (
-        <form className="inset stack tight" onSubmit={save}>
-          <label className="field">
-            Symbol
-            <input className="mono" value={symbol} onChange={(e) => setSymbol(e.target.value)} required />
-          </label>
-          <span className="field-note">{symbolKind(symbol)}</span>
-          <div className="caps tiny">Timeframe</div>
-          <Seg label="Timeframe" mono value={timeframe} onChange={setTimeframe} options={inst.timeframes.map((t) => ({ value: t, label: t }))} />
-          <div className="row">
-            <button type="submit" className="primary sm" disabled={busy}>Save</button>
-            <button type="button" className="sm" onClick={() => setEditing(false)}>Cancel</button>
+      <div className="instance-mid">
+        {editing ? (
+          <form className="stack tight" onSubmit={save}>
+            <label className="field">
+              Symbol
+              <InstrumentInput accountId={account.id} value={symbol} onChange={setSymbol} listId={`edit-instruments-${inst.id}`} />
+            </label>
+            <span className="field-note">{symbolKind(symbol)}</span>
+            <div className="caps tiny">Timeframe</div>
+            <Seg label="Timeframe" mono value={timeframe} onChange={setTimeframe} options={inst.timeframes.map((t) => ({ value: t, label: t }))} />
+            <SizingFields draft={sizing} onChange={setSizing} defaultQty={inst.quantity} cap={Math.min(inst.max_order_qty, inst.max_position)} />
+            <div className="row">
+              <button type="submit" className="primary sm" disabled={busy || !sizingValid(sizing)}>Save</button>
+              <button type="button" className="sm" onClick={() => { setEditing(false); setSymbol(inst.symbol); setTimeframe(inst.timeframe); setSizing(sizingDraft(inst)) }}>Cancel</button>
+            </div>
+          </form>
+        ) : (
+          <div className="kv-grid" style={{ gridTemplateColumns: 'minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1fr)' }}>
+            <div><div className="k">Symbol</div><div className="v" title={inst.symbol}>{shortSymbol(inst.symbol)}</div></div>
+            <div><div className="k">Timeframe</div><div className="v">{inst.timeframe}</div></div>
+            <div><div className="k">Size</div><div className="v" title={sizeHint(inst)}>{sizeLabel(inst)}</div></div>
+            <div><div className="k">Max pos</div><div className="v">{fmtQty(inst.max_position)}</div></div>
           </div>
-        </form>
-      ) : (
-        <div className="inset kv-grid" style={{ gridTemplateColumns: 'minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1fr)' }}>
-          <div><div className="k">Symbol</div><div className="v" title={inst.symbol}>{shortSymbol(inst.symbol)}</div></div>
-          <div><div className="k">Timeframe</div><div className="v">{inst.timeframe}</div></div>
-          <div><div className="k">Qty</div><div className="v">{fmtQty(inst.quantity)}</div></div>
-          <div><div className="k">Max pos</div><div className="v">{fmtQty(inst.max_position)}</div></div>
-        </div>
-      )}
-
-      <div className="between" style={{ alignItems: 'flex-end' }}>
-        <div className="grow" style={{ maxWidth: '62%' }}>
+        )}
+        <div>
           <div className="between small muted" style={{ marginBottom: 6 }}>
             <span>Orders today</span>
             <span className="mono">{inst.orders_today ?? 0} / {inst.max_orders_per_day}</span>
@@ -409,38 +380,52 @@ function InstanceCard({
             {' · '}Last <span className="mono" style={{ color: 'var(--text)' }}>{fmtNum(inst.last_price)}</span>
           </div>
         </div>
+      </div>
+
+      <div className="instance-side">
+        <div className="row" style={{ flexWrap: 'nowrap', gap: 10 }}>
+          <span className={`small ${isRunning ? 'pos' : inst.status === 'error' ? 'neg' : 'muted'}`} style={{ fontWeight: 500 }}>
+            {isRunning ? 'Running' : inst.status === 'error' ? 'Error' : 'Stopped'}
+          </span>
+          <Switch on={isRunning} label={isRunning ? 'Stop' : 'Start'} onChange={toggle} disabled={busy || (!isRunning && (!stopped || blocked))} />
+        </div>
         <div style={{ textAlign: 'right' }}>
           <div className="small muted">Today</div>
           <Pnl value={todayPnl ?? null} className="figure md" />
         </div>
       </div>
 
-      {blocked && !isRunning && (
-        <div className="alert warn">
-          <span className="dot warn" style={{ marginTop: 6 }} />
-          <div className="grow">
-            {brokerTitle(account.broker)} is not logged in today — this strategy can’t start.{' '}
-            <button className="link" onClick={() => void startBrokerLogin(account.id).catch((e) => onError(errorMessage(e)))}>
-              Log in
-            </button>
-          </div>
+      {(blocked && !isRunning) || inst.last_error || note ? (
+        <div className="instance-full stack tight">
+          {blocked && !isRunning && (
+            <div className="alert warn">
+              <span className="dot warn" style={{ marginTop: 6 }} />
+              <div className="grow">
+                {brokerTitle(account.broker)} is not logged in today — this strategy can’t start.{' '}
+                <button className="link" onClick={() => void startBrokerLogin(account.id).catch((e) => onError(errorMessage(e)))}>
+                  Log in
+                </button>
+              </div>
+            </div>
+          )}
+          {inst.last_error && <ErrorBox error={inst.last_error} />}
+          {note && <Note tone="warn" onClose={() => setNote(null)}>{note}</Note>}
         </div>
-      )}
-      {inst.last_error && <ErrorBox error={inst.last_error} />}
-      {note && <Note tone="warn" onClose={() => setNote(null)}>{note}</Note>}
-
-      <div className="actions">
-        <button className="sm" onClick={onSignals}>Signal log</button>
-        <button className="sm" disabled={busy || !stopped} onClick={() => setEditing(!editing)} title={stopped ? 'Change symbol or timeframe' : 'Stop it first'}>
-          Edit
-        </button>
-        <span className="grow" />
-        <button className="link danger small" disabled={busy || !stopped} onClick={remove} title={stopped ? '' : 'Stop it first'}>
-          Remove
-        </button>
-      </div>
+      ) : null}
     </section>
   )
+}
+
+function sizeLabel(inst: Instance): string {
+  if (inst.size_mode === 'capital') return `${fmtCompact(inst.capital_per_trade ?? 0)}/trade`
+  const n = inst.sized_quantity ?? inst.fixed_quantity ?? inst.quantity
+  return `${fmtQty(n)} unit${n === 1 ? '' : 's'}`
+}
+
+function sizeHint(inst: Instance): string {
+  if (inst.size_mode !== 'capital') return `Fixed: ${fmtQty(inst.sized_quantity ?? inst.quantity)} units per trade`
+  const at = inst.sized_quantity !== null && inst.last_price ? ` — ${fmtQty(inst.sized_quantity)} units at ${fmtNum(inst.last_price)}` : ''
+  return `Capital: ${fmtMoney(inst.capital_per_trade)} per trade, up to ${fmtQty(Math.min(inst.max_order_qty, inst.max_position))} units${at}`
 }
 
 function SignalList({ instanceId, pushed }: { instanceId: number; pushed: Signal | null }) {

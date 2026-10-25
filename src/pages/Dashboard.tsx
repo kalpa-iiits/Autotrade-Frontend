@@ -119,7 +119,7 @@ function AccountDashboard({ account }: { account: Account }) {
 
       <div className="split">
         <AccountValue account={account} value={value} unrealized={open} />
-        <Card title="Strategies" actions={<Link to="/strategies" className="small" style={{ textDecoration: 'none' }}>Manage →</Link>} flush>
+        <Card title="Strategies" actions={<Link to="/my-strategies" className="small" style={{ textDecoration: 'none' }}>Manage →</Link>} flush>
           {insts.length === 0 && (
             <Empty action={<Link to="/strategies"><button className="sm">Add a strategy</button></Link>}>No strategies on this account yet.</Empty>
           )}
