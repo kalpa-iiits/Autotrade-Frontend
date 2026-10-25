@@ -565,9 +565,10 @@ export interface paths {
         };
         /**
          * Performance
-         * @description Strategy tester: backtest on one timeframe over a date range (default: the last 3 months)
-         *     of the account's broker history. Summary for all / long / short trades, every simulated
-         *     trade with its run-up and drawdown, and buy & hold for comparison. Cached for the IST day.
+         * @description Strategy tester: backtest on one timeframe over a date range (default: the last year) of
+         *     the account's broker history, each trade sized at `size_pct` of the equity. Summary for all /
+         *     long / short trades, every simulated trade with its run-up and drawdown, and buy & hold for
+         *     comparison. Cached for the IST day.
          */
         get: operations["performance_api_strategies_catalog__key__performance_get"];
         put?: never;
@@ -2048,6 +2049,8 @@ export interface operations {
                 start?: string | null;
                 end?: string | null;
                 capital?: number;
+                /** @description Order size, % of equity */
+                size_pct?: number;
             };
             header?: {
                 authorization?: string | null;
@@ -2087,6 +2090,7 @@ export interface operations {
                 start?: string | null;
                 end?: string | null;
                 capital?: number;
+                size_pct?: number;
             };
             header?: {
                 authorization?: string | null;

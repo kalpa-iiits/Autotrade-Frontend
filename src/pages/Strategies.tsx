@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { brokerTitle, needsLogin, startBrokerLogin, useCurrentAccount } from '../accounts'
 import { api, errorMessage, unwrap } from '../api/client'
 import type { Account, CatalogStrategy, Instance, OrdersMessage, Signal } from '../api/types'
@@ -28,7 +28,7 @@ import {
   useLoad,
 } from '../components/ui'
 import { useLive } from '../live'
-import { loadCatalog, loadPerformance, preferredSymbol, presetRange } from '../strategies'
+import { DEFAULT_RANGE, loadCatalog, loadPerformance, preferredSymbol, presetRange, testSymbol, testTimeframe } from '../strategies'
 import { pnlByStrategy, useSummary } from '../summary'
 
 export default function Strategies() {
@@ -48,7 +48,6 @@ export default function Strategies() {
 
 // ---------- the strategy list ----------
 
-const CARD_RANGE = '3M'
 
 function Library({ account }: { account: Account | null | undefined }) {
   const catalog = useLoad(loadCatalog, [])
@@ -67,25 +66,69 @@ function Library({ account }: { account: Account | null | undefined }) {
 }
 
 function LibraryCard({ s, account, instances }: { s: CatalogStrategy; account: Account | null | undefined; instances: Instance[] | undefined }) {
-  const symbol = preferredSymbol(s, instances)
+  const navigate = useNavigate()
+  const { strategies, reload } = useSummary()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const symbol = preferredSymbol(s, instances) // where Deploy runs it
+  const tested = account ? testSymbol(account) : null // where the card's backtest runs: NIFTY 50
+  const timeframe = testTimeframe(s)
   const canTest = !!account && !needsLogin(account)
   const perf = useLoad(
-    () => (canTest ? loadPerformance(s.key, account.id, symbol, s.default_timeframe, presetRange(CARD_RANGE)) : Promise.resolve(undefined)),
-    [s.key, account?.id, symbol, canTest],
+    () => (canTest && tested ? loadPerformance(s.key, account.id, tested, timeframe, presetRange(DEFAULT_RANGE)) : Promise.resolve(undefined)),
+    [s.key, account?.id, tested, timeframe, canTest],
   )
   const p = perf.data?.summary.all
   const curve = useMemo(() => [0, ...(perf.data?.trades.map((t) => t.cum_pnl) ?? [])], [perf.data])
   const mine = (instances ?? []).filter((i) => i.deployment_key === s.key)
-  const running = mine.filter((i) => i.status === 'running').length
+  const running = mine.filter((i) => i.status === 'running')
+  const report = `/strategies/${s.key}`
 
+  /** On: run it on this account (adding it on the shown symbol and its own timeframe if needed). Off: stop it. */
+  async function toggle(on: boolean) {
+    if (!account) return
+    if (on && s.mode === 'live') {
+      const live = strategies.data?.live_trading_enabled
+      const msg = live
+        ? `${s.label} is in LIVE mode and will place REAL orders (${s.quantity} per trade) with ${account.label}. Start it?`
+        : `${s.label} is in LIVE mode. The server's live switch is off, so its signals will be blocked. Start anyway?`
+      if (!window.confirm(msg)) return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      if (on) {
+        const inst = mine.find((i) => i.status === 'stopped' || i.status === 'error') ??
+          (await unwrap<Instance>(api.POST('/api/strategies', { body: { deployment_key: s.key, account_id: account.id, symbol, timeframe: s.default_timeframe } })))
+        await unwrap(api.POST('/api/strategies/{instance_id}/start', { params: { path: { instance_id: inst.id } } }))
+      } else {
+        for (const inst of running) await unwrap(api.POST('/api/strategies/{instance_id}/stop', { params: { path: { instance_id: inst.id } } }))
+      }
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setBusy(false)
+      reload()
+    }
+  }
+
+  const deployed = running.length > 0
+  const target = deployed ? running.map((i) => `${shortSymbol(i.symbol)} ${i.timeframe}`).join(', ') : `${shortSymbol(mine.find((i) => i.status !== 'running')?.symbol ?? symbol)} ${mine.find((i) => i.status !== 'running')?.timeframe ?? s.default_timeframe}`
   return (
-    <Link to={`/strategies/${s.key}`} className="card library-card">
+    <section className="card library-card" onClick={() => navigate(report)}>
       <div className="between" style={{ alignItems: 'flex-start' }}>
         <div className="grow">
-          <h3 className="mono ellipsis">{s.label}</h3>
+          <h3 className="mono ellipsis"><Link to={report} className="plain-link">{s.label}</Link></h3>
           <div className="tiny muted mono" style={{ marginTop: 2 }}>{s.strategy} · built for {s.default_timeframe}</div>
         </div>
-        {running ? <Pill tone="good" dot="good">{running} running</Pill> : mine.length ? <Pill>{mine.length} added</Pill> : null}
+        {account && (
+          <label className="deploy-toggle" onClick={(e) => e.stopPropagation()} title={needsLogin(account) ? `Log in to ${brokerTitle(account.broker)} first` : `${deployed ? 'Stop' : 'Start'} on ${account.label}: ${target}`}>
+            <span className="small">
+              {busy ? (deployed ? 'Stopping…' : 'Starting…') : deployed ? 'Deployed' : 'Deploy'}
+            </span>
+            <Switch on={deployed} label={deployed ? `Stop ${s.label}` : `Deploy ${s.label}`} onChange={(on) => void toggle(on)} disabled={busy || needsLogin(account)} />
+          </label>
+        )}
       </div>
       <div className="row" style={{ gap: 6 }}>
         {s.tags.map((t) => <span key={t} className="chip">{t}</span>)}
@@ -93,7 +136,7 @@ function LibraryCard({ s, account, instances }: { s: CatalogStrategy; account: A
       <p className="small muted">{s.description}</p>
       <div className="inset stack tight" style={{ marginTop: 'auto' }}>
         <div className="between">
-          <span className="caps tiny">Backtest · {CARD_RANGE} · {shortSymbol(symbol)}</span>
+          <span className="caps tiny">Backtest · {DEFAULT_RANGE} · {tested ? shortSymbol(tested) : 'NIFTY 50'} · {timeframe}</span>
           {curve.length > 1 && <Sparkline values={curve} width={80} height={22} />}
         </div>
         {p ? (
@@ -109,10 +152,13 @@ function LibraryCard({ s, account, instances }: { s: CatalogStrategy; account: A
           </div>
         )}
       </div>
-      <span className="small" style={{ color: 'var(--action)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        Rules &amp; full performance report <Icon name="arrow" size={14} />
-      </span>
-    </Link>
+      {error && <div onClick={(e) => e.stopPropagation()}><ErrorBox error={error} /></div>}
+      <div className="library-actions" onClick={(e) => e.stopPropagation()}>
+        <Link to={report} className="button-link primary">
+          See performance report <Icon name="arrow" size={14} />
+        </Link>
+      </div>
+    </section>
   )
 }
 

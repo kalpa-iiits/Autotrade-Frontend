@@ -72,7 +72,7 @@ function Overview({ s }: { s: CatalogStrategy }) {
         <div><div className="k">Built for</div><div className="v">{s.default_timeframe}</div></div>
         <div><div className="k">Timeframes</div><div className="v" title={s.timeframes.join(', ')}>{s.timeframes.join(' ')}</div></div>
         <div><div className="k">Default instrument</div><div className="v" title={s.default_symbol}>{shortSymbol(s.default_symbol)}</div></div>
-        <div><div className="k">Qty per trade</div><div className="v">{fmtQty(s.quantity)}</div></div>
+        <div><div className="k">Live qty / trade</div><div className="v">{fmtQty(s.quantity)}</div></div>
         <div><div className="k">Max position</div><div className="v">{fmtQty(s.max_position)}</div></div>
         <div><div className="k">Orders / day</div><div className="v">{s.max_orders_per_day}</div></div>
       </div>
@@ -149,7 +149,8 @@ function DeployPanel({ s, account }: { s: CatalogStrategy; account: Account }) {
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const mine = (strategies.data?.strategies ?? []).filter((i) => i.deployment_key === s.key)
-  const [symbol, setSymbol] = useState(params.get('symbol') ?? preferredSymbol(s, strategies.data?.strategies))
+  // The tester's instrument (NIFTY 50 by default) may not be tradable, so deploy on the strategy's own symbol.
+  const [symbol, setSymbol] = useState(preferredSymbol(s, strategies.data?.strategies))
   const [timeframe, setTimeframe] = useState(params.get('tf') && s.timeframes.includes(params.get('tf')!) ? params.get('tf')! : s.default_timeframe)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)

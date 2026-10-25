@@ -5,26 +5,28 @@ import type { Account, BacktestTrade, CatalogStrategy, Performance, TesterStats 
 import { Icon } from '../components/icons'
 import { TesterChart, type TesterSeries } from '../components/TesterChart'
 import { Empty, ErrorBox, Note, fmtCompact, fmtDate, fmtMoney, fmtNum, fmtQty, fmtTime, shortSymbol, useLoad } from '../components/ui'
-import { DEFAULT_CAPITAL, RANGE_PRESETS, loadMatrix, loadPerformance, preferredSymbol, presetRange, type DateRange, type RangePreset } from '../strategies'
+import { DEFAULT_CAPITAL, DEFAULT_RANGE, DEFAULT_SIZE_PCT, RANGE_PRESETS, loadMatrix, loadPerformance, presetRange, testSymbol, testTimeframe, type DateRange, type RangePreset } from '../strategies'
 import { useSummary } from '../summary'
 import { loadWatchlist } from './Market'
 
 type View = 'overview' | 'summary' | 'trades'
 
 /** Settings of the tester, kept in the URL so a link reopens the same report. */
-function useTesterParams(s: CatalogStrategy) {
-  const { strategies } = useSummary()
+function useTesterParams(s: CatalogStrategy, account: Account) {
   const [params, setParams] = useSearchParams()
-  const preset = (params.get('range') ?? (params.get('start') ? 'custom' : '3M')) as RangePreset | 'custom'
+  const preset = (params.get('range') ?? (params.get('start') ? 'custom' : DEFAULT_RANGE)) as RangePreset | 'custom'
+  const fallback = presetRange(DEFAULT_RANGE)
   const range: DateRange =
-    preset === 'custom' ? { start: params.get('start') ?? presetRange('3M').start, end: params.get('end') ?? presetRange('3M').end } : presetRange(preset in RANGE_PRESETS ? preset : '3M')
+    preset === 'custom' ? { start: params.get('start') ?? fallback.start, end: params.get('end') ?? fallback.end } : presetRange(preset in RANGE_PRESETS ? preset : DEFAULT_RANGE)
   const capital = Number(params.get('capital')) > 0 ? Number(params.get('capital')) : DEFAULT_CAPITAL
+  const size = Number(params.get('size'))
   return {
-    symbol: params.get('symbol') ?? preferredSymbol(s, strategies.data?.strategies),
-    timeframe: s.timeframes.includes(params.get('tf') ?? '') ? params.get('tf')! : s.default_timeframe,
+    symbol: params.get('symbol') ?? testSymbol(account),
+    timeframe: s.timeframes.includes(params.get('tf') ?? '') ? params.get('tf')! : testTimeframe(s),
     preset,
     range,
     capital,
+    sizePct: size > 0 && size <= 100 ? size : DEFAULT_SIZE_PCT,
     view: (['overview', 'summary', 'trades'].includes(params.get('view') ?? '') ? params.get('view') : 'overview') as View,
     set(next: Record<string, string | null>) {
       const p = new URLSearchParams(params)
@@ -38,11 +40,11 @@ function useTesterParams(s: CatalogStrategy) {
 }
 
 export default function StrategyTester({ s, account }: { s: CatalogStrategy; account: Account }) {
-  const t = useTesterParams(s)
+  const t = useTesterParams(s, account)
   const blocked = needsLogin(account)
   const perf = useLoad(
-    () => (blocked ? Promise.resolve(undefined) : loadPerformance(s.key, account.id, t.symbol, t.timeframe, t.range, t.capital)),
-    [s.key, account.id, t.symbol, t.timeframe, t.range.start, t.range.end, t.capital, blocked],
+    () => (blocked ? Promise.resolve(undefined) : loadPerformance(s.key, account.id, t.symbol, t.timeframe, t.range, t.capital, t.sizePct)),
+    [s.key, account.id, t.symbol, t.timeframe, t.range.start, t.range.end, t.capital, t.sizePct, blocked],
   )
   const d = perf.data
 
@@ -69,8 +71,13 @@ export default function StrategyTester({ s, account }: { s: CatalogStrategy; acc
             </div>
           )}
         </Dropdown>
-        <RangePicker key={`${t.range.start}-${t.range.end}`} preset={t.preset} range={t.range} onPick={(preset, range) => t.set(preset === 'custom' ? { range: null, start: range.start, end: range.end } : { range: preset === '3M' ? null : preset, start: null, end: null })} />
-        <CapitalPicker key={t.capital} capital={t.capital} onPick={(c) => t.set({ capital: c === DEFAULT_CAPITAL ? null : String(c) })} />
+        <RangePicker key={`${t.range.start}-${t.range.end}`} preset={t.preset} range={t.range} onPick={(preset, range) => t.set(preset === 'custom' ? { range: null, start: range.start, end: range.end } : { range: preset === DEFAULT_RANGE ? null : preset, start: null, end: null })} />
+        <CapitalPicker
+          key={`${t.capital}-${t.sizePct}`}
+          capital={t.capital}
+          sizePct={t.sizePct}
+          onPick={(c, size) => t.set({ capital: c === DEFAULT_CAPITAL ? null : String(c), size: size === DEFAULT_SIZE_PCT ? null : String(size) })}
+        />
         {perf.loading && d && <span className="small muted">Updating…</span>}
       </div>
 
@@ -93,7 +100,7 @@ export default function StrategyTester({ s, account }: { s: CatalogStrategy; acc
           {t.view === 'summary' && <Summary d={d} />}
           {t.view === 'trades' && <Trades d={d} />}
           <div className="tiny muted">
-            {shortSymbol(d.symbol)} · {d.timeframe} · {fmtDate(d.data_from)} – {fmtDate(d.data_to)} · {fmtQty(d.candles)} one-minute candles · qty {fmtQty(d.quantity)} per trade
+            {shortSymbol(d.symbol)} · {d.timeframe} · {fmtDate(d.data_from)} – {fmtDate(d.data_to)} · {fmtQty(d.candles)} one-minute candles · ₹{fmtQty(d.capital)} capital, {d.size_pct}% of equity per trade
             {d.blocked_signals ? ` · ${d.blocked_signals} signals blocked by risk limits` : ''}. {d.assumptions.join('. ')}. Past results don’t guarantee future returns.
           </div>
         </div>
@@ -165,17 +172,22 @@ function RangePicker({ preset, range, onPick }: { preset: RangePreset | 'custom'
   )
 }
 
-function CapitalPicker({ capital, onPick }: { capital: number; onPick: (c: number) => void }) {
+function CapitalPicker({ capital, sizePct, onPick }: { capital: number; sizePct: number; onPick: (c: number, sizePct: number) => void }) {
   const [value, setValue] = useState(String(capital))
+  const [size, setSize] = useState(String(sizePct))
   return (
-    <Dropdown title="Initial capital" label={<span><span className="muted">₹</span> {fmtCompact(capital).replace('₹', '')} <span className="tiny muted">INR</span></span>}>
+    <Dropdown
+      title="Initial capital and order size"
+      label={<span><span className="muted">₹</span> {fmtCompact(capital).replace('₹', '')} <span className="tiny muted">INR · {sizePct}% of equity</span></span>}
+    >
       {(close) => (
         <form
           className="stack tight"
           style={{ padding: 10, width: 240 }}
           onSubmit={(e) => {
             e.preventDefault()
-            if (Number(value) > 0) onPick(Number(value))
+            const s = Number(size)
+            if (Number(value) > 0) onPick(Number(value), s > 0 && s <= 100 ? s : DEFAULT_SIZE_PCT)
             close()
           }}
         >
@@ -186,7 +198,14 @@ function CapitalPicker({ capital, onPick }: { capital: number; onPick: (c: numbe
               <button key={v} type="button" className="sm" onClick={() => setValue(String(v))}>{fmtCompact(v)}</button>
             ))}
           </div>
-          <div className="tiny muted">Percentages are measured against it; each trade still uses the strategy’s quantity.</div>
+          <div className="caps tiny" style={{ marginTop: 6 }}>Order size (% of equity)</div>
+          <input className="mono" inputMode="decimal" value={size} onChange={(e) => setSize(e.target.value.replace(/[^\d.]/g, ''))} />
+          <div className="row" style={{ gap: 6 }}>
+            {[25, 50, 100].map((v) => (
+              <button key={v} type="button" className="sm" onClick={() => setSize(String(v))}>{v}%</button>
+            ))}
+          </div>
+          <div className="tiny muted">Each entry buys as many units as this share of the current equity (capital plus closed P&amp;L) pays for, so results compound.</div>
           <button type="submit" className="primary sm">Apply</button>
         </form>
       )}
@@ -291,8 +310,8 @@ function Overview({ d, s, account, t }: { d: Performance; s: CatalogStrategy; ac
 function Compare({ s, account, t }: { s: CatalogStrategy; account: Account; t: ReturnType<typeof useTesterParams> }) {
   const [asked, setAsked] = useState(false)
   const m = useLoad(
-    () => (asked ? loadMatrix(s.key, account.id, t.symbol, t.range, t.capital) : Promise.resolve(undefined)),
-    [asked, s.key, account.id, t.symbol, t.range.start, t.range.end, t.capital],
+    () => (asked ? loadMatrix(s.key, account.id, t.symbol, t.range, t.capital, t.sizePct) : Promise.resolve(undefined)),
+    [asked, s.key, account.id, t.symbol, t.range.start, t.range.end, t.capital, t.sizePct],
   )
   return (
     <div className="inset" style={{ padding: 0 }}>

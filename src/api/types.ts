@@ -241,8 +241,9 @@ export interface Performance {
   deployment_key: string
   symbol: string
   timeframe: string
-  quantity: number
   capital: number
+  /** Order size, % of equity per entry. */
+  size_pct: number
   start: string
   end: string
   data_from: string

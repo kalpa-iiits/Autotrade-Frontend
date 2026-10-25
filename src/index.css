@@ -385,7 +385,13 @@ th:last-child, td:last-child { padding-right: 18px; }
 .seg.fill { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
 
 /* ---------- strategy list & page ---------- */
-.library-card { display: flex; flex-direction: column; gap: 12px; color: var(--text); text-decoration: none; transition: border-color 0.12s, background 0.12s; }
+.library-card { display: flex; flex-direction: column; gap: 12px; color: var(--text); cursor: pointer; transition: border-color 0.12s, background 0.12s; }
+.library-actions { display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding-top: 14px; border-top: 1px solid var(--border); cursor: default; flex-wrap: wrap; }
+a.button-link { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 8px 14px; border-radius: var(--r-control); font-size: 13px; font-weight: 500; text-decoration: none; }
+a.button-link.primary { background: var(--action); color: var(--action-ink); }
+a.button-link.primary:hover { background: #92a5ff; }
+.deploy-toggle { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; flex: none; }
+.deploy-toggle > span { white-space: nowrap; }
 .library-card:hover { border-color: var(--border-strong); background: var(--raised); }
 .library-card h3 { font-size: 15px; font-weight: 600; }
 .chip { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
