@@ -16,6 +16,7 @@ import Market, { loadWatchlist } from './pages/Market'
 import Orders from './pages/Orders'
 import Settings from './pages/Settings'
 import Strategies from './pages/Strategies'
+import StrategyDetail from './pages/StrategyDetail'
 import Trades from './pages/Trades'
 import { loadPrefs, notify } from './reminders'
 import { SummaryProvider, accountValue, useSummary } from './summary'
@@ -56,6 +57,7 @@ function Shell() {
           <Route path="/market" element={<Market />} />
           <Route path="/trades" element={<Trades />} />
           <Route path="/strategies" element={<Strategies />} />
+          <Route path="/strategies/:key" element={<StrategyDetail />} />
           <Route path="/accounts" element={<Accounts />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -351,7 +353,7 @@ function Palette() {
       group: 'Strategies',
       label: s.label,
       hint: `${shortSymbol(s.symbol)} · ${s.timeframe} · ${s.status}`,
-      go: go('/strategies'),
+      go: go(`/strategies/${s.deployment_key}`),
     }))
     const symbols: Item[] = (current ? loadWatchlist(current) : []).map((s) => ({
       group: 'Symbols',

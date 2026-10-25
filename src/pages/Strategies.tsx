@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { brokerTitle, needsLogin, startBrokerLogin, useCurrentAccount } from '../accounts'
 import { api, errorMessage, unwrap } from '../api/client'
-import type { Account, Deployment, Instance, OrdersMessage, Signal, StrategiesList } from '../api/types'
+import type { Account, CatalogStrategy, Instance, OrdersMessage, Signal } from '../api/types'
+import { Sparkline } from '../components/charts'
 import { Icon } from '../components/icons'
 import { Page } from '../components/Page'
 import { MarketPill } from '../components/StatusPills'
@@ -17,6 +19,7 @@ import {
   Seg,
   StatusPill,
   Switch,
+  fmtCompact,
   fmtNum,
   fmtQty,
   fmtTime,
@@ -25,35 +28,97 @@ import {
   useLoad,
 } from '../components/ui'
 import { useLive } from '../live'
+import { loadCatalog, loadPerformance, preferredSymbol, presetRange } from '../strategies'
 import { pnlByStrategy, useSummary } from '../summary'
 
 export default function Strategies() {
   const account = useCurrentAccount()
-  const addRef = useRef<HTMLDivElement>(null)
   return (
     <Page
       title="Strategies"
-      sub="Run your coded strategies on an account — pick the instrument and timeframe here."
+      sub="Coded trading strategies — open one for its rules and backtested performance, then run it on an account."
       band
-      actions={
-        <>
-          <MarketPill />
-          {account && (
-            <button className="primary" onClick={() => addRef.current?.scrollIntoView({ behavior: 'smooth' })}>
-              <Icon name="plus" size={16} /> New strategy
-            </button>
-          )}
-        </>
-      }
+      actions={<MarketPill />}
     >
-      {account ? <AccountStrategies key={account.id} account={account} addRef={addRef} /> : <NeedAccount />}
+      <Library account={account} />
+      {account ? <AccountStrategies key={account.id} account={account} /> : <NeedAccount />}
     </Page>
+  )
+}
+
+// ---------- the strategy list ----------
+
+const CARD_RANGE = '3M'
+
+function Library({ account }: { account: Account | null | undefined }) {
+  const catalog = useLoad(loadCatalog, [])
+  const { strategies } = useSummary()
+  return (
+    <>
+      <ErrorBox error={catalog.error} />
+      <div className="grid-3">
+        {catalog.data?.map((s) => (
+          <LibraryCard key={`${s.key}-${account?.id}`} s={s} account={account} instances={strategies.data?.strategies} />
+        ))}
+      </div>
+      {catalog.data?.length === 0 && <Card><Empty>No strategies are defined in code yet (app/strategies/deployments.py).</Empty></Card>}
+    </>
+  )
+}
+
+function LibraryCard({ s, account, instances }: { s: CatalogStrategy; account: Account | null | undefined; instances: Instance[] | undefined }) {
+  const symbol = preferredSymbol(s, instances)
+  const canTest = !!account && !needsLogin(account)
+  const perf = useLoad(
+    () => (canTest ? loadPerformance(s.key, account.id, symbol, s.default_timeframe, presetRange(CARD_RANGE)) : Promise.resolve(undefined)),
+    [s.key, account?.id, symbol, canTest],
+  )
+  const p = perf.data?.summary.all
+  const curve = useMemo(() => [0, ...(perf.data?.trades.map((t) => t.cum_pnl) ?? [])], [perf.data])
+  const mine = (instances ?? []).filter((i) => i.deployment_key === s.key)
+  const running = mine.filter((i) => i.status === 'running').length
+
+  return (
+    <Link to={`/strategies/${s.key}`} className="card library-card">
+      <div className="between" style={{ alignItems: 'flex-start' }}>
+        <div className="grow">
+          <h3 className="mono ellipsis">{s.label}</h3>
+          <div className="tiny muted mono" style={{ marginTop: 2 }}>{s.strategy} · built for {s.default_timeframe}</div>
+        </div>
+        {running ? <Pill tone="good" dot="good">{running} running</Pill> : mine.length ? <Pill>{mine.length} added</Pill> : null}
+      </div>
+      <div className="row" style={{ gap: 6 }}>
+        {s.tags.map((t) => <span key={t} className="chip">{t}</span>)}
+      </div>
+      <p className="small muted">{s.description}</p>
+      <div className="inset stack tight" style={{ marginTop: 'auto' }}>
+        <div className="between">
+          <span className="caps tiny">Backtest · {CARD_RANGE} · {shortSymbol(symbol)}</span>
+          {curve.length > 1 && <Sparkline values={curve} width={80} height={22} />}
+        </div>
+        {p ? (
+          <div className="kv-grid" style={{ '--cols': 2 } as React.CSSProperties}>
+            <div><div className="k">Net P&amp;L</div><Pnl value={p.net_pnl} compact className="small" /></div>
+            <div><div className="k">Profitable</div><div className="v">{p.win_rate === null ? '—' : `${p.win_rate.toFixed(0)}%`}</div></div>
+            <div><div className="k">Trades</div><div className="v">{p.trades}</div></div>
+            <div><div className="k">Max DD</div><div className="v">{p.max_drawdown ? fmtCompact(-p.max_drawdown) : '—'}</div></div>
+          </div>
+        ) : (
+          <div className="small muted">
+            {!account ? 'Add a broker account to backtest it.' : !canTest ? 'Log in to the broker to backtest it.' : perf.error ? `Couldn’t backtest: ${perf.error}` : 'Backtesting…'}
+          </div>
+        )}
+      </div>
+      <span className="small" style={{ color: 'var(--action)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        Rules &amp; full performance report <Icon name="arrow" size={14} />
+      </span>
+    </Link>
   )
 }
 
 type Filter = 'all' | 'running' | 'stopped'
 
-function AccountStrategies({ account, addRef }: { account: Account; addRef: React.RefObject<HTMLDivElement | null> }) {
+function AccountStrategies({ account }: { account: Account }) {
   const { strategies: list, closedToday, trades, reload } = useSummary()
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
@@ -80,6 +145,7 @@ function AccountStrategies({ account, addRef }: { account: Account; addRef: Reac
       {d && <LiveSwitch on={d.live_trading_enabled} />}
       <ErrorBox error={list.error ?? error} />
 
+      <h2 style={{ fontSize: 17, marginTop: 8 }}>Running on {account.label}</h2>
       <div className="between">
         <Seg
           label="Filter"
@@ -98,9 +164,7 @@ function AccountStrategies({ account, addRef }: { account: Account; addRef: Reac
 
       {d && insts.length === 0 && (
         <Card>
-          <Empty action={<button className="primary sm" onClick={() => addRef.current?.scrollIntoView({ behavior: 'smooth' })}>Add your first strategy</button>}>
-            No strategies on {account.label} yet. Pick one of the strategies defined in code below.
-          </Empty>
+          <Empty>No strategies on {account.label} yet. Open one of the strategies above and press Deploy.</Empty>
         </Card>
       )}
       {d && insts.length > 0 && shown.length === 0 && <Card><Empty>No {filter} strategies.</Empty></Card>}
@@ -120,8 +184,6 @@ function AccountStrategies({ account, addRef }: { account: Account; addRef: Reac
           />
         ))}
       </div>
-
-      <div ref={addRef}>{d && <AddInstance account={account} data={d} onAdded={reload} />}</div>
 
       {signalsFor && (
         <Modal title={`Signal log — ${signalsFor.label}`} onClose={() => setSignalsFor(null)} wide>
@@ -248,7 +310,7 @@ function InstanceCard({
       <div className="between" style={{ alignItems: 'flex-start' }}>
         <div className="grow">
           <div className="row" style={{ gap: 8 }}>
-            <h3 className="ellipsis">{inst.label}</h3>
+            <h3 className="ellipsis"><Link to={`/strategies/${inst.deployment_key}?symbol=${encodeURIComponent(inst.symbol)}&tf=${inst.timeframe}`} className="plain-link">{inst.label}</Link></h3>
             <Pill tone={inst.mode === 'live' ? 'bad' : undefined}>{inst.mode}</Pill>
           </div>
           <p className="small muted" style={{ marginTop: 6 }}>{inst.description}</p>
@@ -379,103 +441,5 @@ function SignalList({ instanceId, pushed }: { instanceId: number; pushed: Signal
         </div>
       )}
     </>
-  )
-}
-
-function AddInstance({ account, data, onAdded }: { account: Account; data: StrategiesList; onAdded: () => void }) {
-  const [key, setKey] = useState(data.deployments[0]?.key ?? '')
-  const dep = data.deployments.find((d) => d.key === key)
-  const [symbol, setSymbol] = useState(dep?.default_symbol ?? '')
-  const [timeframe, setTimeframe] = useState(dep?.default_timeframe ?? '')
-  const [error, setError] = useState<string | null>(null)
-  const [note, setNote] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  function pick(d: Deployment) {
-    setKey(d.key)
-    setSymbol(d.default_symbol)
-    setTimeframe(d.default_timeframe)
-  }
-
-  async function submit(e: FormEvent) {
-    e.preventDefault()
-    setBusy(true)
-    setError(null)
-    setNote(null)
-    try {
-      const inst = await unwrap<Instance & { warning?: string | null }>(
-        api.POST('/api/strategies', { body: { deployment_key: key, account_id: account.id, symbol: symbol.trim(), timeframe } }),
-      )
-      setNote(`Added ${inst.label} on ${shortSymbol(inst.symbol)} ${inst.timeframe}, stopped. Switch it on above when you’re ready.${inst.warning ? ` Warning: ${inst.warning}` : ''}`)
-      onAdded()
-    } catch (err) {
-      setError(errorMessage(err))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  if (data.deployments.length === 0) return null
-  const accountText = `${account.label} (${account.broker === 'paper' ? 'paper' : brokerTitle(account.broker)})`
-  return (
-    <section className="card">
-      <h2 style={{ fontSize: 17 }}>Add a strategy to {accountText}</h2>
-      <p className="small muted" style={{ marginTop: 4, marginBottom: 18 }}>Three choices. It is added stopped, so you can review it before it trades.</p>
-      <form className="side-right" style={{ gridTemplateColumns: 'minmax(0, 1fr) 300px' }} onSubmit={submit}>
-        <div className="stack">
-          <div>
-            <div style={{ fontWeight: 600, marginBottom: 10 }}><span className="step">1</span>Choose a strategy</div>
-            <div className="grid-3" style={{ gap: 10 }}>
-              {data.deployments.map((d) => (
-                <button type="button" key={d.key} className={`option-card ${d.key === key ? 'on' : ''}`} onClick={() => pick(d)} aria-pressed={d.key === key}>
-                  <span className="title">{d.key}</span>
-                  <span className="mono tiny muted">{d.strategy} · {d.mode}</span>
-                  <span className="desc">{d.description}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="row" style={{ alignItems: 'flex-start', gap: 20 }}>
-            <div className="grow" style={{ minWidth: 220 }}>
-              <div style={{ fontWeight: 600, marginBottom: 10 }}><span className="step">2</span>Instrument</div>
-              <input className="mono" value={symbol} onChange={(e) => setSymbol(e.target.value)} required aria-label="Instrument" />
-              <div className="field-note" style={{ marginTop: 6 }}>{symbolKind(symbol)}</div>
-            </div>
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 10 }}><span className="step">3</span>Timeframe</div>
-              <Seg label="Timeframe" mono value={timeframe} onChange={setTimeframe} options={(dep?.timeframes ?? []).map((t) => ({ value: t, label: t }))} />
-              {dep && (
-                <div className={`field-note ${timeframe === dep.default_timeframe ? 'pos' : ''}`} style={{ marginTop: 6 }}>
-                  {timeframe === dep.default_timeframe ? '✓ Recommended timeframe for this strategy' : `Built for ${dep.default_timeframe}`}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="inset stack" style={{ padding: 16 }}>
-          <div className="caps tiny">Review</div>
-          <dl className="kv">
-            <dt>Strategy</dt>
-            <dd>{key}</dd>
-            <dt>Instrument</dt>
-            <dd>{shortSymbol(symbol) || '—'}</dd>
-            <dt>Timeframe</dt>
-            <dd>{timeframe}</dd>
-            <dt>Account</dt>
-            <dd style={{ fontFamily: 'var(--font)' }}>{accountText}</dd>
-            <dt>Mode</dt>
-            <dd className={dep?.mode === 'live' ? 'neg' : ''}>{dep?.mode}</dd>
-          </dl>
-          <button type="submit" className="primary block lg" disabled={busy || !key || !symbol.trim()}>
-            {busy ? 'Adding…' : 'Add strategy'}
-          </button>
-          <div className="tiny muted" style={{ textAlign: 'center' }}>Added as stopped — press Start when ready.</div>
-        </div>
-      </form>
-      <div className="stack tight" style={{ marginTop: 12 }}>
-        <ErrorBox error={error} />
-        {note && <Note onClose={() => setNote(null)}>{note}</Note>}
-      </div>
-    </section>
   )
 }

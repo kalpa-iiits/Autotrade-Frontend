@@ -154,6 +154,114 @@ export interface StrategiesList {
   strategies: Instance[]
 }
 
+export type RuleKind = 'entry_long' | 'entry_short' | 'exit' | 'risk' | 'filter'
+
+/** A strategy's trigger conditions in plain words, with its params filled in. */
+export interface StrategyRule {
+  kind: RuleKind
+  title: string
+  conditions: string[]
+}
+
+export interface StrategyParam {
+  name: string
+  title: string
+  description: string | null
+  value: unknown
+  default: unknown
+}
+
+/** A strategy defined in code, for the strategy list and its page (GET /api/strategies/catalog). */
+export interface CatalogStrategy {
+  key: string
+  label: string
+  strategy: string
+  description: string
+  tags: string[]
+  rules: StrategyRule[]
+  params: StrategyParam[]
+  mode: Mode
+  default_symbol: string
+  default_timeframe: string
+  timeframes: string[]
+  quantity: number
+  max_order_qty: number
+  max_position: number
+  max_orders_per_day: number
+}
+
+export interface TesterStats {
+  trades: number
+  wins: number
+  losses: number
+  win_rate: number | null
+  net_pnl: number
+  /** Net P&L as % of the starting capital. */
+  net_pnl_pct: number
+  gross_profit: number
+  gross_loss: number
+  profit_factor: number | null
+  avg_trade: number | null
+  avg_win: number | null
+  avg_loss: number | null
+  ratio_avg_win_loss: number | null
+  best: number | null
+  worst: number | null
+  max_drawdown: number
+  max_drawdown_pct: number
+  max_run_up: number
+  max_run_up_pct: number
+  avg_hold_minutes: number | null
+  max_consecutive_losses: number
+  trading_days: number
+}
+
+export interface BacktestTrade {
+  number: number
+  direction: 'LONG' | 'SHORT'
+  quantity: number
+  entry_at: string
+  entry_price: number
+  exit_at: string
+  exit_price: number
+  /** Entry price × quantity. */
+  notional: number
+  pnl: number
+  return_pct: number | null
+  /** Most it was in profit / in loss while open (positive amounts). */
+  run_up: number
+  drawdown: number
+  cum_pnl: number
+  entry_reason: string | null
+  exit_reason: string | null
+}
+
+/** GET /api/strategies/catalog/{key}/performance: the strategy tester on one timeframe and range. */
+export interface Performance {
+  deployment_key: string
+  symbol: string
+  timeframe: string
+  quantity: number
+  capital: number
+  start: string
+  end: string
+  data_from: string
+  data_to: string
+  candles: number
+  blocked_signals: number
+  assumptions: string[]
+  generated_at: string
+  summary: { all: TesterStats; long: TesterStats; short: TesterStats }
+  trades: BacktestTrade[]
+  /** Daily closes and what holding `capital` worth from the first one would have made. */
+  buy_hold: { t: string; close: number; pnl: number }[]
+}
+
+export interface PerformanceMatrix {
+  symbol: string
+  timeframes: Record<string, TesterStats>
+}
+
 export interface Signal {
   id: number
   instance_id: number

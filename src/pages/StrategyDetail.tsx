@@ -1,0 +1,212 @@
+import { useState, type FormEvent } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useCurrentAccount } from '../accounts'
+import { api, errorMessage, unwrap } from '../api/client'
+import type { Account, CatalogStrategy, Instance, RuleKind } from '../api/types'
+import { Icon, type IconName } from '../components/icons'
+import { Page } from '../components/Page'
+import { Card, Empty, ErrorBox, NeedAccount, Note, Pill, Seg, fmtQty, shortSymbol, symbolKind, useLoad } from '../components/ui'
+import { preferredSymbol } from '../strategies'
+import StrategyTester from './StrategyTester'
+import { useSummary } from '../summary'
+
+const RULE_LOOK: Record<RuleKind, { icon: IconName; color: string }> = {
+  entry_long: { icon: 'market', color: 'var(--profit)' },
+  entry_short: { icon: 'trades', color: 'var(--loss)' },
+  exit: { icon: 'arrow', color: 'var(--action)' },
+  risk: { icon: 'shield', color: 'var(--paper)' },
+  filter: { icon: 'info', color: 'var(--muted)' },
+}
+
+export default function StrategyDetail() {
+  const { key = '' } = useParams()
+  const account = useCurrentAccount()
+  const item = useLoad(() => unwrap<CatalogStrategy>(api.GET('/api/strategies/catalog/{key}', { params: { path: { key } } })), [key])
+  const s = item.data
+
+  return (
+    <Page
+      title={
+        <span className="row" style={{ gap: 10 }}>
+          <Link to="/strategies" className="muted" style={{ textDecoration: 'none', fontWeight: 400 }}>Strategies</Link>
+          <span className="faint" style={{ fontWeight: 400 }}>/</span>
+          <span className="mono">{s?.label ?? key}</span>
+        </span>
+      }
+      sub={s ? `${s.strategy} · ${s.timeframes.join(' · ')}` : undefined}
+      band
+      actions={
+        s && account ? (
+          <button className="primary" onClick={() => document.getElementById('deploy')?.scrollIntoView({ behavior: 'smooth' })}>
+            <Icon name="plus" size={16} /> Deploy
+          </button>
+        ) : null
+      }
+    >
+      <ErrorBox error={item.error} />
+      {!s && !item.error && <div className="muted">Loading…</div>}
+      {s && (
+        <>
+          <Overview s={s} />
+          {account ? <StrategyTester key={`${account.id}-${s.key}`} s={s} account={account} /> : <NeedAccount />}
+          <div className="split even" style={{ alignItems: 'start' }}>
+            <Rules s={s} />
+            <Params s={s} />
+          </div>
+          {account && <DeployPanel s={s} account={account} />}
+        </>
+      )}
+    </Page>
+  )
+}
+
+function Overview({ s }: { s: CatalogStrategy }) {
+  return (
+    <section className="card stack" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: 8 }}>
+        <Pill tone={s.mode === 'live' ? 'bad' : 'info'} dot={s.mode === 'live' ? 'bad' : 'info'}>{s.mode === 'live' ? 'Live orders' : 'Signals only'}</Pill>
+        {s.tags.map((t) => <Pill key={t}>{t}</Pill>)}
+      </div>
+      <p style={{ fontSize: 15, maxWidth: 820 }}>{s.description}</p>
+      <div className="inset kv-grid" style={{ '--cols': 6 } as React.CSSProperties}>
+        <div><div className="k">Built for</div><div className="v">{s.default_timeframe}</div></div>
+        <div><div className="k">Timeframes</div><div className="v" title={s.timeframes.join(', ')}>{s.timeframes.join(' ')}</div></div>
+        <div><div className="k">Default instrument</div><div className="v" title={s.default_symbol}>{shortSymbol(s.default_symbol)}</div></div>
+        <div><div className="k">Qty per trade</div><div className="v">{fmtQty(s.quantity)}</div></div>
+        <div><div className="k">Max position</div><div className="v">{fmtQty(s.max_position)}</div></div>
+        <div><div className="k">Orders / day</div><div className="v">{s.max_orders_per_day}</div></div>
+      </div>
+    </section>
+  )
+}
+
+function Rules({ s }: { s: CatalogStrategy }) {
+  return (
+    <Card title="Trigger conditions">
+      {s.rules.length === 0 && <Empty>This strategy doesn’t describe its rules yet.</Empty>}
+      <div className="stack" style={{ gap: 12 }}>
+        {s.rules.map((r, i) => {
+          const look = RULE_LOOK[r.kind] ?? RULE_LOOK.filter
+          return (
+            <div key={i} className="inset rule" style={{ borderLeftColor: look.color }}>
+              <div className="row" style={{ gap: 8, marginBottom: 8 }}>
+                <span style={{ color: look.color, display: 'inline-flex' }}><Icon name={look.icon} size={15} /></span>
+                <b>{r.title}</b>
+              </div>
+              <ul>
+                {r.conditions.map((c) => <li key={c}>{c}</li>)}
+              </ul>
+            </div>
+          )
+        })}
+      </div>
+    </Card>
+  )
+}
+
+function paramText(v: unknown): string {
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No'
+  if (typeof v === 'string' && /^\d\d:\d\d:\d\d$/.test(v)) return v.slice(0, 5)
+  return v === null || v === undefined ? '—' : String(v)
+}
+
+function Params({ s }: { s: CatalogStrategy }) {
+  return (
+    <Card title="Parameters" count={s.params.length} flush>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Setting</th>
+              <th className="num">Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {s.params.map((p) => (
+              <tr key={p.name}>
+                <td style={{ whiteSpace: 'normal' }}>
+                  <span className="mono small">{p.name}</span>
+                  {p.description && <div className="sub">{p.description}</div>}
+                </td>
+                <td className="num">
+                  {paramText(p.value)}
+                  {paramText(p.value) !== paramText(p.default) && <div className="sub">default {paramText(p.default)}</div>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="table-foot">Set in backend code (app/strategies/deployments.py); the same for every instance.</div>
+    </Card>
+  )
+}
+
+// ---------- deploy ----------
+
+function DeployPanel({ s, account }: { s: CatalogStrategy; account: Account }) {
+  const { strategies, reload } = useSummary()
+  const [params] = useSearchParams()
+  const navigate = useNavigate()
+  const mine = (strategies.data?.strategies ?? []).filter((i) => i.deployment_key === s.key)
+  const [symbol, setSymbol] = useState(params.get('symbol') ?? preferredSymbol(s, strategies.data?.strategies))
+  const [timeframe, setTimeframe] = useState(params.get('tf') && s.timeframes.includes(params.get('tf')!) ? params.get('tf')! : s.default_timeframe)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [note, setNote] = useState<string | null>(null)
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    setNote(null)
+    try {
+      const inst = await unwrap<Instance & { warning?: string | null }>(
+        api.POST('/api/strategies', { body: { deployment_key: s.key, account_id: account.id, symbol: symbol.trim(), timeframe } }),
+      )
+      setNote(`Added on ${shortSymbol(inst.symbol)} ${inst.timeframe}, stopped. Start it from the Strategies page when you’re ready.${inst.warning ? ` Warning: ${inst.warning}` : ''}`)
+      reload()
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="card" id="deploy">
+      <div className="side-right" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
+        <div className="stack tight">
+          <h2 style={{ fontSize: 17 }}>Run it on {account.label}</h2>
+          <p className="small muted">Added stopped, in {s.mode} mode — {s.mode === 'live' ? 'it places real orders once started.' : 'it records signals without placing orders.'}</p>
+          <form className="stack tight" onSubmit={submit} style={{ marginTop: 6 }}>
+            <label className="field">
+              Instrument
+              <input className="mono" value={symbol} onChange={(e) => setSymbol(e.target.value)} required />
+            </label>
+            <span className="field-note">{symbolKind(symbol)}</span>
+            <div className="caps tiny" style={{ marginTop: 6 }}>Timeframe</div>
+            <Seg label="Timeframe" mono value={timeframe} onChange={setTimeframe} options={s.timeframes.map((t) => ({ value: t, label: t }))} />
+            <div className="row" style={{ marginTop: 8 }}>
+              <button type="submit" className="primary" disabled={busy || !symbol.trim()}>{busy ? 'Adding…' : 'Add strategy'}</button>
+            </div>
+          </form>
+          <ErrorBox error={error} />
+          {note && <Note onClose={() => setNote(null)}>{note}</Note>}
+        </div>
+        <div className="inset" style={{ padding: 0 }}>
+          <div className="caps tiny" style={{ padding: '14px 16px 6px' }}>On this account · {mine.length}</div>
+          {mine.length === 0 && <div className="small muted" style={{ padding: '6px 16px 16px' }}>Not running anywhere on {account.label} yet.</div>}
+          {mine.map((i) => (
+            <button key={i.id} className="list-row instance-row" onClick={() => navigate('/strategies')}>
+              <span className={`dot ${i.status === 'running' ? 'good' : i.status === 'error' ? 'bad' : ''}`} />
+              <span className="mono grow ellipsis" style={{ textAlign: 'left' }}>{shortSymbol(i.symbol)} · {i.timeframe}</span>
+              <span className="small muted">{i.status}</span>
+              <Icon name="arrow" size={14} className="muted" />
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
