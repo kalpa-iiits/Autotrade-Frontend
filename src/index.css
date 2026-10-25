@@ -105,6 +105,8 @@ code { font-family: var(--mono); font-size: 12px; background: var(--sunken); bor
 }
 .page-head h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
 .page-head .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.strategy-intro { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.strategy-intro p { color: var(--text); font-size: 14px; line-height: 1.55; max-width: 820px; }
 .head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .mode-band { display: flex; align-items: center; gap: 10px; padding: 9px 28px; font-size: 13px; border-bottom: 1px solid var(--border); }
 .mode-band.paper { background: var(--paper-soft); color: #f3d68a; }
@@ -426,6 +428,11 @@ a.plain-link { color: inherit; text-decoration: none; }
 a.plain-link:hover { color: var(--action); }
 .rule { border-left: 3px solid var(--border-strong); }
 .rule ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.deploy-submit { padding-top: 14px; border-top: 1px solid var(--border); }
+.deploy-side { position: relative; min-height: 160px; }
+.deploy-side > .card { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
+.deploy-rows { flex: 1; min-height: 0; overflow-y: auto; }
+@media (max-width: 1180px) { .deploy-side > .card { position: static; max-height: 360px; } }
 .instance-row { width: 100%; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: none; justify-content: flex-start; min-height: 0; }
 
 /* ---------- strategy tester (TradingView-style) ---------- */
@@ -433,6 +440,9 @@ a.plain-link:hover { color: var(--action); }
 .tester > *:not(.tester-bar) { margin: 0 18px; }
 .tester-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--sunken); border-radius: var(--r-card) var(--r-card) 0 0; }
 .tester-bar .seg { margin-right: 6px; }
+.tester-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; padding-top: 16px; }
+.tester-head h2 { font-size: 17px; font-weight: 600; }
+.tester-head + .tester-bar { border-radius: 0; border-top: 1px solid var(--border); margin-top: -4px; }
 .bar-btn { gap: 8px; color: var(--text) !important; font-size: 13px; }
 .dropdown { position: relative; }
 .dropdown-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 40; min-width: 180px; background: var(--raised); border: 1px solid var(--border-strong); border-radius: 12px; padding: 6px; box-shadow: 0 16px 40px rgb(0 0 0 / 0.45); }

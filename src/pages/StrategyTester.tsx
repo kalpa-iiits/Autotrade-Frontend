@@ -52,6 +52,10 @@ export default function StrategyTester({ s, account }: { s: CatalogStrategy; acc
 
   return (
     <section className="card tester" id="performance">
+      <header className="tester-head">
+        <h2>Backtest data</h2>
+        <span className="small muted">Simulated on the broker’s past prices on {t.timeframe} candles. An estimate, not live results: fills are idealised, with no slippage.</span>
+      </header>
       <div className="tester-bar">
         <div className="seg icon-seg" role="group" aria-label="View">
           {([['overview', 'Overview'], ['summary', 'Performance summary'], ['trades', 'List of trades']] as const).map(([v, label]) => (

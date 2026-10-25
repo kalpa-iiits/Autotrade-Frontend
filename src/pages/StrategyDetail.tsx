@@ -5,7 +5,7 @@ import { api, errorMessage, unwrap } from '../api/client'
 import type { Account, CatalogStrategy, Instance, RuleKind } from '../api/types'
 import { Icon, type IconName } from '../components/icons'
 import { Page } from '../components/Page'
-import { Card, Empty, ErrorBox, NeedAccount, Note, Pill, Seg, fmtQty, shortSymbol, symbolKind, useLoad } from '../components/ui'
+import { Card, Empty, ErrorBox, NeedAccount, Note, Pill, Seg, shortSymbol, symbolKind, useLoad } from '../components/ui'
 import StrategyTester from './StrategyTester'
 import { useSummary } from '../summary'
 import { sizingBody, sizingDraft, sizingValid, type SizingDraft } from '../strategies'
@@ -35,7 +35,7 @@ export default function StrategyDetail() {
           <span className="mono">{s?.label ?? key}</span>
         </span>
       }
-      sub={s ? `${s.strategy} · ${s.timeframes.join(' · ')}` : undefined}
+      sub={s ? <Intro s={s} /> : undefined}
       band
     >
       <ErrorBox error={item.error} />
@@ -43,7 +43,6 @@ export default function StrategyDetail() {
       {s && (
         <>
           {account && <DeployPanel s={s} account={account} />}
-          <Overview s={s} />
           {account ? <StrategyTester key={`${account.id}-${s.key}`} s={s} account={account} /> : <NeedAccount />}
           <div className="split even" style={{ alignItems: 'start' }}>
             <Rules s={s} />
@@ -55,21 +54,16 @@ export default function StrategyDetail() {
   )
 }
 
-function Overview({ s }: { s: CatalogStrategy }) {
+/** Under the page title: mode and tags, then what the strategy does. */
+function Intro({ s }: { s: CatalogStrategy }) {
   return (
-    <section className="card stack" style={{ gap: 14 }}>
+    <div className="strategy-intro">
       <div className="row" style={{ gap: 8 }}>
         <Pill tone={s.mode === 'live' ? 'bad' : 'info'} dot={s.mode === 'live' ? 'bad' : 'info'}>{s.mode === 'live' ? 'Live orders' : 'Signals only'}</Pill>
         {s.tags.map((t) => <Pill key={t}>{t}</Pill>)}
       </div>
-      <p style={{ fontSize: 15, maxWidth: 820 }}>{s.description}</p>
-      <div className="inset kv-grid" style={{ '--cols': 4 } as React.CSSProperties}>
-        <div><div className="k">Timeframes</div><div className="v" title={s.timeframes.join(', ')}>{s.timeframes.join(' ')}</div></div>
-        <div><div className="k">Live qty / trade</div><div className="v">{fmtQty(s.quantity)}</div></div>
-        <div><div className="k">Max position</div><div className="v">{fmtQty(s.max_position)}</div></div>
-        <div><div className="k">Orders / day</div><div className="v">{s.max_orders_per_day}</div></div>
-      </div>
-    </section>
+      <p>{s.description}</p>
+    </div>
   )
 }
 
@@ -169,42 +163,48 @@ function DeployPanel({ s, account }: { s: CatalogStrategy; account: Account }) {
   }
 
   return (
-    <section className="card" id="deploy">
-      <div className="side-right" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
-        <div className="stack tight">
+    <div className="split">
+      <section className="card stack" id="deploy">
+        <div>
           <h2 style={{ fontSize: 17 }}>Deploy on {account.label}</h2>
-          <p className="small muted">Added stopped, in {s.mode} mode — {s.mode === 'live' ? 'it places real orders once started.' : 'it records signals without placing orders.'}</p>
-          <form className="stack tight" onSubmit={submit} style={{ marginTop: 6 }}>
-            <div className="row" style={{ alignItems: 'flex-end', gap: 12 }}>
-              <label className="field grow" style={{ minWidth: 200 }}>
-                Instrument
-                <InstrumentInput accountId={account.id} value={symbol} onChange={setSymbol} listId={`deploy-instruments-${s.key}`} />
-              </label>
-              <div className="stack" style={{ gap: 6 }}>
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Timeframe</span>
-                <Seg label="Timeframe" mono value={timeframe} onChange={setTimeframe} options={s.timeframes.map((t) => ({ value: t, label: t }))} />
-              </div>
-              <button type="submit" className="primary" disabled={busy || !symbol.trim() || !sizingValid(sizing)}>{busy ? 'Adding…' : 'Add strategy'}</button>
+          <p className="small muted" style={{ marginTop: 4 }}>Added stopped, in {s.mode} mode — {s.mode === 'live' ? 'it places real orders once started.' : 'it records signals without placing orders.'}</p>
+        </div>
+        <form className="stack" onSubmit={submit}>
+          <div className="row" style={{ alignItems: 'flex-start', gap: 16 }}>
+            <label className="field grow" style={{ minWidth: 220 }}>
+              Instrument
+              <InstrumentInput accountId={account.id} value={symbol} onChange={setSymbol} listId={`deploy-instruments-${s.key}`} />
+              {symbol && <span className="field-note">{symbolKind(symbol)}</span>}
+            </label>
+            <div className="stack" style={{ gap: 6 }}>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Timeframe</span>
+              <Seg label="Timeframe" mono value={timeframe} onChange={setTimeframe} options={s.timeframes.map((t) => ({ value: t, label: t }))} />
             </div>
-            {symbol && <span className="field-note">{symbolKind(symbol)}</span>}
-            <SizingFields draft={sizing} onChange={setSizing} defaultQty={s.quantity} cap={Math.min(s.max_order_qty, s.max_position)} />
-          </form>
-          <ErrorBox error={error} />
-          {note && <Note onClose={() => setNote(null)}>{note}</Note>}
-        </div>
-        <div className="inset" style={{ padding: 0 }}>
-          <div className="caps tiny" style={{ padding: '14px 16px 6px' }}>On this account · {mine.length}</div>
-          {mine.length === 0 && <div className="small muted" style={{ padding: '6px 16px 16px' }}>Not running anywhere on {account.label} yet.</div>}
-          {mine.map((i) => (
-            <button key={i.id} className="list-row instance-row" onClick={() => navigate('/my-strategies')}>
-              <span className={`dot ${i.status === 'running' ? 'good' : i.status === 'error' ? 'bad' : ''}`} />
-              <span className="mono grow ellipsis" style={{ textAlign: 'left' }}>{shortSymbol(i.symbol)} · {i.timeframe}</span>
-              <span className="small muted">{i.status}</span>
-              <Icon name="arrow" size={14} className="muted" />
-            </button>
-          ))}
-        </div>
+          </div>
+          <SizingFields draft={sizing} onChange={setSizing} defaultQty={s.quantity} cap={Math.min(s.max_order_qty, s.max_position)} />
+          <div className="deploy-submit">
+            <button type="submit" className="primary" disabled={busy || !symbol.trim() || !sizingValid(sizing)}>{busy ? 'Adding…' : 'Add strategy'}</button>
+          </div>
+        </form>
+        <ErrorBox error={error} />
+        {note && <Note onClose={() => setNote(null)}>{note}</Note>}
+      </section>
+      {/* As tall as the Deploy card; a longer list scrolls inside it. */}
+      <div className="deploy-side">
+        <Card title="On this account" count={mine.length} actions={<Link to="/my-strategies" className="small" style={{ textDecoration: 'none' }}>My strategies →</Link>} flush>
+          <div className="deploy-rows">
+            {mine.length === 0 && <div className="small muted" style={{ padding: '0 18px 18px' }}>Not added on {account.label} yet.</div>}
+            {mine.map((i) => (
+              <button key={i.id} className="list-row instance-row" onClick={() => navigate('/my-strategies')}>
+                <span className={`dot ${i.status === 'running' ? 'good' : i.status === 'error' ? 'bad' : ''}`} />
+                <span className="mono grow ellipsis" style={{ textAlign: 'left' }}>{shortSymbol(i.symbol)} · {i.timeframe}</span>
+                <span className="small muted">{i.status}</span>
+                <Icon name="arrow" size={14} className="muted" />
+              </button>
+            ))}
+          </div>
+        </Card>
       </div>
-    </section>
+    </div>
   )
 }
