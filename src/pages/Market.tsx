@@ -153,7 +153,7 @@ const TF_DAYS: Record<Tf, number> = { '1m': 3, '5m': 7, '15m': 15, '1h': 45, '1D
 function SymbolPanel({ account, symbol, ltp, day, onRemove }: { account: Account; symbol: string; ltp: number | undefined; day: DayStats | null; onRemove?: () => void }) {
   const navigate = useNavigate()
   const { strategies } = useSummary()
-  const [tf, setTf] = useState<Tf>('1m')
+  const [tf, setTf] = useState<Tf>('5m')
   const [smas, setSmas] = useState(true)
   const change = ltp !== undefined && day?.prevClose ? ltp - day.prevClose : null
   const on = (strategies.data?.strategies ?? []).filter((s) => s.symbol === symbol)

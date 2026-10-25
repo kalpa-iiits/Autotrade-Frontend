@@ -159,7 +159,7 @@ function DeployPanel({ s, account }: { s: CatalogStrategy; account: Account }) {
     return () => controller.abort()
   }, [account.id, instrumentQuery])
   const requestedTimeframe = params.get('tf')
-  const [timeframe, setTimeframe] = useState(requestedTimeframe && s.timeframes.includes(requestedTimeframe) ? requestedTimeframe : (mine[0]?.timeframe ?? s.default_timeframe))
+  const [timeframe, setTimeframe] = useState(requestedTimeframe && s.timeframes.includes(requestedTimeframe) ? requestedTimeframe : s.default_timeframe)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
@@ -189,60 +189,62 @@ function DeployPanel({ s, account }: { s: CatalogStrategy; account: Account }) {
           <h2 style={{ fontSize: 17 }}>Deploy on {account.label}</h2>
           <p className="small muted">Added stopped, in {s.mode} mode — {s.mode === 'live' ? 'it places real orders once started.' : 'it records signals without placing orders.'}</p>
           <form className="stack tight" onSubmit={submit} style={{ marginTop: 6 }}>
-            <label className="field">
-              Instrument
-              <div className="dropdown">
-                <input
-                  className="mono"
-                  style={{ width: '100%' }}
-                  value={symbol}
-                  onChange={(e) => {
-                    const next = e.target.value.toUpperCase()
-                    setSymbol(next)
-                    if (!next.trim()) setMatchingInstruments([])
-                    setShowInstrumentSuggestions(true)
-                  }}
-                  onFocus={() => setShowInstrumentSuggestions(true)}
-                  onBlur={() => setShowInstrumentSuggestions(false)}
-                  placeholder="Start typing an instrument"
-                  autoComplete="off"
-                  role="combobox"
-                  aria-expanded={showInstrumentSuggestions && matchingInstruments.length > 0}
-                  aria-controls={`deploy-instruments-${s.key}`}
-                  required
-                />
-                {showInstrumentSuggestions && matchingInstruments.length > 0 && (
-                  <div className="dropdown-menu menu-list" id={`deploy-instruments-${s.key}`} role="listbox" style={{ width: '100%' }}>
-                    {matchingInstruments.map((candidate) => (
-                      <button
-                        key={candidate.symbol}
-                        type="button"
-                        className="menu-item"
-                        role="option"
-                        onMouseDown={(e) => {
-                          e.preventDefault()
-                          setSymbol(candidate.symbol)
-                          setShowInstrumentSuggestions(false)
-                        }}
-                      >
-                        <span className="grow" style={{ textAlign: 'left' }}>
-                          <span className="mono">{candidate.ticker}</span>
-                          <span className="tiny muted" style={{ display: 'block' }}>{candidate.name}</span>
-                        </span>
-                        <span className="tiny muted">{candidate.kind}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+            <div className="row" style={{ alignItems: 'flex-end', gap: 12 }}>
+              <label className="field grow" style={{ minWidth: 200 }}>
+                Instrument
+                <div className="dropdown">
+                  <input
+                    className="mono"
+                    style={{ width: '100%' }}
+                    value={symbol}
+                    onChange={(e) => {
+                      const next = e.target.value.toUpperCase()
+                      setSymbol(next)
+                      if (!next.trim()) setMatchingInstruments([])
+                      setShowInstrumentSuggestions(true)
+                    }}
+                    onFocus={() => setShowInstrumentSuggestions(true)}
+                    onBlur={() => setShowInstrumentSuggestions(false)}
+                    placeholder="Start typing an instrument"
+                    autoComplete="off"
+                    role="combobox"
+                    aria-expanded={showInstrumentSuggestions && matchingInstruments.length > 0}
+                    aria-controls={`deploy-instruments-${s.key}`}
+                    required
+                  />
+                  {showInstrumentSuggestions && matchingInstruments.length > 0 && (
+                    <div className="dropdown-menu menu-list" id={`deploy-instruments-${s.key}`} role="listbox" style={{ width: '100%' }}>
+                      {matchingInstruments.map((candidate) => (
+                        <button
+                          key={candidate.symbol}
+                          type="button"
+                          className="menu-item"
+                          role="option"
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            setSymbol(candidate.symbol)
+                            setShowInstrumentSuggestions(false)
+                          }}
+                        >
+                          <span className="grow" style={{ textAlign: 'left' }}>
+                            <span className="mono">{candidate.ticker}</span>
+                            <span className="tiny muted" style={{ display: 'block' }}>{candidate.name}</span>
+                          </span>
+                          <span className="tiny muted">{candidate.kind}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </label>
+              <div className="stack" style={{ gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Timeframe</span>
+                <Seg label="Timeframe" mono value={timeframe} onChange={setTimeframe} options={s.timeframes.map((t) => ({ value: t, label: t }))} />
               </div>
-            </label>
-            {symbol.trim() && instrumentSearchError && <span className="field-note" style={{ color: 'var(--loss)' }}>{instrumentSearchError}</span>}
-            {symbol && <span className="field-note">{symbolKind(symbol)}</span>}
-            <div className="caps tiny" style={{ marginTop: 6 }}>Timeframe</div>
-            <Seg label="Timeframe" mono value={timeframe} onChange={setTimeframe} options={s.timeframes.map((t) => ({ value: t, label: t }))} />
-            <div className="row" style={{ marginTop: 8 }}>
               <button type="submit" className="primary" disabled={busy || !symbol.trim()}>{busy ? 'Adding…' : 'Add strategy'}</button>
             </div>
+            {symbol.trim() && instrumentSearchError && <span className="field-note" style={{ color: 'var(--loss)' }}>{instrumentSearchError}</span>}
+            {symbol && <span className="field-note">{symbolKind(symbol)}</span>}
           </form>
           <ErrorBox error={error} />
           {note && <Note onClose={() => setNote(null)}>{note}</Note>}
