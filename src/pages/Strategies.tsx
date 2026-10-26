@@ -214,7 +214,7 @@ function AccountStrategies({ account }: { account: Account }) {
   )
 }
 
-/** The server's AUTOTRADE_STRATEGIES_LIVE switch, explained in plain words. */
+/** The server's AUTOTRADE_STRATEGIES_LIVE_ENABLED switch, explained in plain words. */
 function LiveSwitch({ on }: { on: boolean }) {
   return (
     <div className="card row" style={{ gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -228,9 +228,9 @@ function LiveSwitch({ on }: { on: boolean }) {
         </div>
         <div className="small muted">
           {on ? (
-            <>Strategies in <b>live</b> mode place real broker orders. Set <code>AUTOTRADE_STRATEGIES_LIVE=false</code> and restart to go back to signals only.</>
+            <>Strategies in <b>live</b> mode place real broker orders. Set <code>AUTOTRADE_STRATEGIES_LIVE_ENABLED=false</code> and restart to go back to signals only.</>
           ) : (
-            <>Strategies run and log their signals, but no live broker order is placed. This is a server safety switch — set <code>AUTOTRADE_STRATEGIES_LIVE=true</code> and restart to allow live orders.</>
+            <>Strategies run and log their signals, but no live broker order is placed. This is a server safety switch — set <code>AUTOTRADE_STRATEGIES_LIVE_ENABLED=true</code> and restart to allow live orders.</>
           )}
         </div>
       </div>
