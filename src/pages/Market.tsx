@@ -258,10 +258,16 @@ const drawable = (n: unknown): n is number => typeof n === 'number' && Number.is
 
 function aggregate(candles: Candle[], tf: Tf): Bar[] {
   const out: Bar[] = []
-  for (const c of candles) {
+  // Oldest first: the chart's production build doesn't check the order, and out-of-order bars
+  // crash it while drawing ("Value is null"). Sorted, the bars below come out in order too.
+  const sorted = candles
+    .map((c) => ({ c, sec: Math.floor(new Date(c.time).getTime() / 1000) }))
+    .filter(({ sec }) => Number.isFinite(sec))
+    .sort((a, b) => a.sec - b.sec)
+  for (const { c, sec } of sorted) {
     if (![c.open, c.high, c.low, c.close].every(drawable)) continue  // e.g. an unfinished candle
     const volume = drawable(c.volume) ? c.volume : 0
-    const t = bucket(Math.floor(new Date(c.time).getTime() / 1000) + IST_OFFSET, tf) as UTCTimestamp
+    const t = bucket(sec + IST_OFFSET, tf) as UTCTimestamp
     const last = out[out.length - 1]
     if (last && last.time === t) {
       last.high = Math.max(last.high, c.high)
