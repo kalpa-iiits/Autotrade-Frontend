@@ -148,6 +148,8 @@ export interface Instance {
   fixed_quantity: number | null
   /** Rupees per trade in capital mode. */
   capital_per_trade: number | null
+  /** False when the strategy can only be sized by fixed quantity. */
+  capital_sizing: boolean
   /** Units the next entry would trade at the last price; null while capital sizing has no price. */
   sized_quantity: number | null
   last_error: string | null
@@ -207,6 +209,10 @@ export interface CatalogStrategy {
   max_position: number
   max_orders_per_day: number
   backtest_initial_capital: number | null
+  /** Shown above its tester results when the backtest differs from live trading. */
+  backtest_note: string | null
+  /** False when it can only be sized by fixed quantity (e.g. it trades option lots). */
+  capital_sizing: boolean
   backtest_fixed_quantity: number | null
   backtest_commission_per_unit: number
 }

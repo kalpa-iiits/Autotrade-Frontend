@@ -187,6 +187,8 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; 
 .input-wrap > svg { position: absolute; left: 12px; color: var(--muted); pointer-events: none; }
 .input-wrap > input { padding-left: 36px; }
 .input-wrap > .suffix { position: absolute; right: 10px; }
+.input-wrap > .dropdown { flex: 1; min-width: 0; }
+.input-wrap > .dropdown > input { padding-left: 36px; }
 
 .seg { display: inline-flex; gap: 2px; background: var(--sunken); border: 1px solid var(--border); border-radius: var(--r-control); padding: 3px; }
 .seg button { border: 0; background: none; min-height: 30px; padding: 4px 12px; color: var(--muted); border-radius: 7px; font-size: 13px; }

@@ -181,7 +181,7 @@ function DeployPanel({ s, account }: { s: CatalogStrategy; account: Account }) {
               <Seg label="Timeframe" mono value={timeframe} onChange={setTimeframe} options={s.timeframes.map((t) => ({ value: t, label: t }))} />
             </div>
           </div>
-          <SizingFields draft={sizing} onChange={setSizing} defaultQty={s.quantity} cap={Math.min(s.max_order_qty, s.max_position)} />
+          <SizingFields draft={sizing} onChange={setSizing} defaultQty={s.quantity} cap={Math.min(s.max_order_qty, s.max_position)} allowCapital={s.capital_sizing} />
           <div className="deploy-submit">
             <button type="submit" className="primary" disabled={busy || !symbol.trim() || !sizingValid(sizing)}>{busy ? 'Adding…' : 'Add strategy'}</button>
           </div>

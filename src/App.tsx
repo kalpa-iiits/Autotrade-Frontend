@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BrowserRouter, NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AccountsProvider, brokerTitle, needsLogin, useAccounts } from './accounts'
 import { api, errorMessage, unwrap } from './api/client'
 import type { Account, OrdersMessage } from './api/types'
@@ -11,6 +11,7 @@ import { LiveProvider, useLive } from './live'
 import { isIstWeekday } from './market'
 import Accounts from './pages/Accounts'
 import Dashboard from './pages/Dashboard'
+import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Market, { loadWatchlist } from './pages/Market'
 import Orders from './pages/Orders'
@@ -33,8 +34,17 @@ export default function App() {
 
 function Gate() {
   const { user } = useAuth()
+  const { pathname } = useLocation()
+  if (pathname === '/welcome') return <Landing />  // the public page, also while signed in
   if (user === undefined) return <div className="center muted">Loading…</div>
-  if (user === null) return <Login />
+  if (user === null) {
+    return (
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="*" element={<Login />} />
+      </Routes>
+    )
+  }
   return (
     <AccountsProvider>
       <LiveProvider>

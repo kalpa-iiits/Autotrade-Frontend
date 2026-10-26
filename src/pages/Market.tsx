@@ -16,6 +16,7 @@ import { api, unwrap } from '../api/client'
 import type { Account, Candle } from '../api/types'
 import { Sparkline } from '../components/charts'
 import { Icon } from '../components/icons'
+import { InstrumentInput } from '../components/InstrumentInput'
 import { Page } from '../components/Page'
 import { MarketPill } from '../components/StatusPills'
 import { Card, Empty, ErrorBox, NeedAccount, Pill, Seg, fmtNum, fmtPct, istDay, shortSymbol, symbolKind, useLoad } from '../components/ui'
@@ -82,9 +83,8 @@ function AccountMarket({ account }: { account: Account }) {
     }
   }, [watchlist, account.id])
 
-  function add(e: FormEvent) {
-    e.preventDefault()
-    const sym = newSymbol.trim().toUpperCase()
+  function add(symbol: string) {
+    const sym = symbol.trim().toUpperCase()
     if (!sym) return
     if (!watchlist.includes(sym)) setWatchlist([...watchlist, sym])
     setSelected(sym)
@@ -113,10 +113,10 @@ function AccountMarket({ account }: { account: Account }) {
       <ErrorBox error={error} />
       <div className="side-left">
         <Card title="Watchlist" actions={<span className="small muted">{watchlist.length} symbols</span>} flush>
-          <form onSubmit={add} style={{ padding: '0 14px 12px' }}>
+          <form onSubmit={(e: FormEvent) => { e.preventDefault(); add(newSymbol) }} style={{ padding: '0 14px 12px' }}>
             <div className="input-wrap">
               <Icon name="plus" size={15} />
-              <input placeholder="Add e.g. NSE:TCS-EQ" value={newSymbol} onChange={(e) => setNewSymbol(e.target.value)} aria-label="Add symbol" />
+              <InstrumentInput accountId={account.id} value={newSymbol} onChange={setNewSymbol} onPick={add} listId="market-add-symbol" placeholder="Add e.g. RELIANCE, INFY" />
             </div>
           </form>
           {watchlist.length === 0 && <Empty>Add a symbol to watch.</Empty>}

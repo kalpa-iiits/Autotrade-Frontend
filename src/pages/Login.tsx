@@ -5,7 +5,7 @@ import { Icon } from '../components/icons'
 
 export default function Login() {
   const { login, signup } = useAuth()
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [mode, setMode] = useState<'signin' | 'signup'>(() => (new URLSearchParams(window.location.search).has('signup') ? 'signup' : 'signin'))
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [repeat, setRepeat] = useState('')

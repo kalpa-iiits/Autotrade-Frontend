@@ -4,8 +4,9 @@ import type { InstrumentSuggestion } from '../api/types'
 import { searchInstruments } from '../strategies'
 import { useDebounced } from './ui'
 
-/** A symbol field that suggests the account broker's instruments as the user types. */
-export function InstrumentInput({ accountId, value, onChange, listId, autoFocus }: { accountId: number; value: string; onChange: (symbol: string) => void; listId: string; autoFocus?: boolean }) {
+/** A symbol field that suggests the account broker's instruments as the user types.
+ *  `onPick` (when given) handles a picked suggestion instead of `onChange`. */
+export function InstrumentInput({ accountId, value, onChange, onPick, listId, autoFocus, placeholder = 'Start typing an instrument' }: { accountId: number; value: string; onChange: (symbol: string) => void; onPick?: (symbol: string) => void; listId: string; autoFocus?: boolean; placeholder?: string }) {
   const [open, setOpen] = useState(false)
   const [matches, setMatches] = useState<InstrumentSuggestion[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -39,7 +40,7 @@ export function InstrumentInput({ accountId, value, onChange, listId, autoFocus 
           }}
           onFocus={() => setOpen(true)}
           onBlur={() => setOpen(false)}
-          placeholder="Start typing an instrument"
+          placeholder={placeholder}
           autoComplete="off"
           autoFocus={autoFocus}
           role="combobox"
@@ -57,7 +58,8 @@ export function InstrumentInput({ accountId, value, onChange, listId, autoFocus 
                 role="option"
                 onMouseDown={(e) => {
                   e.preventDefault()
-                  onChange(candidate.symbol)
+                  if (onPick) onPick(candidate.symbol)
+                  else onChange(candidate.symbol)
                   setOpen(false)
                 }}
               >

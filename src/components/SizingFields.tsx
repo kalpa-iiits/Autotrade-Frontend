@@ -2,7 +2,7 @@ import type { SizingDraft } from '../strategies'
 import { Seg, fmtQty } from './ui'
 
 /** Fixed quantity or capital per trade, with the strategy's hard cap spelled out. */
-export function SizingFields({ draft, onChange, defaultQty, cap }: { draft: SizingDraft; onChange: (d: SizingDraft) => void; defaultQty: number; cap: number }) {
+export function SizingFields({ draft, onChange, defaultQty, cap, allowCapital = true }: { draft: SizingDraft; onChange: (d: SizingDraft) => void; defaultQty: number; cap: number; allowCapital?: boolean }) {
   return (
     <div className="stack" style={{ gap: 6 }}>
       <span style={{ fontSize: 12, color: 'var(--muted)' }}>Position size</span>
@@ -11,7 +11,7 @@ export function SizingFields({ draft, onChange, defaultQty, cap }: { draft: Sizi
           label="Position size"
           value={draft.mode}
           onChange={(mode) => onChange({ ...draft, mode })}
-          options={[{ value: 'fixed', label: 'Fixed quantity' }, { value: 'capital', label: 'Capital per trade' }]}
+          options={allowCapital ? [{ value: 'fixed', label: 'Fixed quantity' }, { value: 'capital', label: 'Capital per trade' }] : [{ value: 'fixed', label: 'Fixed quantity' }]}
         />
         {draft.mode === 'fixed' ? (
           <input

@@ -355,7 +355,7 @@ function InstanceCard({
             <span className="field-note">{symbolKind(symbol)}</span>
             <div className="caps tiny">Timeframe</div>
             <Seg label="Timeframe" mono value={timeframe} onChange={setTimeframe} options={inst.timeframes.map((t) => ({ value: t, label: t }))} />
-            <SizingFields draft={sizing} onChange={setSizing} defaultQty={inst.quantity} cap={Math.min(inst.max_order_qty, inst.max_position)} />
+            <SizingFields draft={sizing} onChange={setSizing} defaultQty={inst.quantity} cap={Math.min(inst.max_order_qty, inst.max_position)} allowCapital={inst.capital_sizing} />
             <div className="row">
               <button type="submit" className="primary sm" disabled={busy || !sizingValid(sizing)}>Save</button>
               <button type="button" className="sm" onClick={() => { setEditing(false); setSymbol(inst.symbol); setTimeframe(inst.timeframe); setSizing(sizingDraft(inst)) }}>Cancel</button>

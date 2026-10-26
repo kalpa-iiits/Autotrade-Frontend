@@ -93,6 +93,7 @@ export default function StrategyTester({ s, account }: { s: CatalogStrategy; acc
         {perf.loading && d && <span className="small muted">Updating…</span>}
       </div>
 
+      {s.backtest_note && <Note tone="warn">{s.backtest_note}</Note>}
       {blocked && <Note tone="warn">Log in to {brokerTitle(account.broker)} on the Accounts page to load its price history for the tester.</Note>}
       {account.broker === 'paper' && <Note tone="warn">Paper-account history is synthetic test data, not NSE market data. Its performance cannot match TradingView; use a connected Fyers or Zerodha account for a market-data comparison.</Note>}
       <ErrorBox error={perf.error} />
