@@ -5,6 +5,7 @@ import { api, errorMessage, unwrap } from './api/client'
 import type { Account, OrdersMessage } from './api/types'
 import { useAuth } from './auth'
 import { AuthProvider } from './auth'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Icon, type IconName } from './components/icons'
 import { fmtMoney, fmtNum, istDay, shortSymbol } from './components/ui'
 import { LiveProvider, useLive } from './live'
@@ -24,11 +25,13 @@ import { SummaryProvider, accountValue, useSummary } from './summary'
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Gate />
-      </BrowserRouter>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <Gate />
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }
 
@@ -57,10 +60,13 @@ function Gate() {
 }
 
 function Shell() {
+  const { pathname } = useLocation()
   return (
     <div className="shell">
       <Sidebar />
       <main className="content">
+        {/* A page that crashes shows its error here; the sidebar stays, and moving to another page tries again. */}
+        <ErrorBoundary key={pathname}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/orders" element={<Orders />} />
@@ -73,6 +79,7 @@ function Shell() {
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </ErrorBoundary>
       </main>
       <Toasts />
       <Palette />

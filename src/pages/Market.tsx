@@ -253,18 +253,23 @@ interface Bar extends CandlestickData<UTCTimestamp> {
   volume: number
 }
 
+// A price the chart can draw: it crashes (blanking the page) on null / NaN.
+const drawable = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
+
 function aggregate(candles: Candle[], tf: Tf): Bar[] {
   const out: Bar[] = []
   for (const c of candles) {
+    if (![c.open, c.high, c.low, c.close].every(drawable)) continue  // e.g. an unfinished candle
+    const volume = drawable(c.volume) ? c.volume : 0
     const t = bucket(Math.floor(new Date(c.time).getTime() / 1000) + IST_OFFSET, tf) as UTCTimestamp
     const last = out[out.length - 1]
     if (last && last.time === t) {
       last.high = Math.max(last.high, c.high)
       last.low = Math.min(last.low, c.low)
       last.close = c.close
-      last.volume += c.volume
+      last.volume += volume
     } else {
-      out.push({ time: t, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume })
+      out.push({ time: t, open: c.open, high: c.high, low: c.low, close: c.close, volume })
     }
   }
   return out
@@ -343,7 +348,7 @@ function CandleChart({ accountId, symbol, tf, smas, lastPrice }: { accountId: nu
   // Move the last bar with live ticks (intraday timeframes).
   useEffect(() => {
     const s = series.current
-    if (lastPrice === undefined || !intraday || !s) return
+    if (!drawable(lastPrice) || !intraday || !s) return
     const t = bucket(Math.floor(Date.now() / 1000) + IST_OFFSET, tf) as UTCTimestamp
     const last = lastBar.current
     if (last && last.time > t) return

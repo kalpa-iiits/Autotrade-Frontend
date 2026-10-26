@@ -40,6 +40,8 @@ export function useQuotes(accountId: number, symbols: string[]) {
     const offState = socket.onState(setState)
     const offMsg = socket.subscribe((msg) => {
       if (msg.type === 'tick') {
+        // A tick without a usable price (a broker can send "ltp": null) would put null into charts.
+        if (typeof msg.ltp !== 'number' || !Number.isFinite(msg.ltp) || msg.ltp <= 0) return
         setQuotes((q) => {
           const old = q[msg.symbol]
           const history = [...(old?.history ?? []), msg.ltp].slice(-HISTORY)
