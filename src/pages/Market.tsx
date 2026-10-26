@@ -3,6 +3,7 @@ import {
   ColorType,
   HistogramSeries,
   LineSeries,
+  LineStyle,
   createChart,
   type CandlestickData,
   type IChartApi,
@@ -12,14 +13,14 @@ import {
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useCurrentAccount } from '../accounts'
-import { api, unwrap } from '../api/client'
+import { api, errorMessage, unwrap, type Schemas } from '../api/client'
 import type { Account, Candle } from '../api/types'
 import { Sparkline } from '../components/charts'
 import { Icon } from '../components/icons'
 import { InstrumentInput } from '../components/InstrumentInput'
 import { Page } from '../components/Page'
 import { MarketPill } from '../components/StatusPills'
-import { Card, Empty, ErrorBox, NeedAccount, Pill, Seg, fmtNum, fmtPct, istDay, shortSymbol, symbolKind, useLoad } from '../components/ui'
+import { Card, Empty, ErrorBox, NeedAccount, Pill, Seg, fmtMoney, fmtNum, fmtPct, istDay, shortSymbol, symbolKind, useLoad } from '../components/ui'
 import { loadDayStats, useQuotes, type DayStats } from '../quotes'
 import { useSummary } from '../summary'
 
@@ -161,6 +162,7 @@ function SymbolPanel({ account, symbol, ltp, day, onRemove }: { account: Account
   const { strategies } = useSummary()
   const [tf, setTf] = useState<Tf>('5m')
   const [smas, setSmas] = useState(true)
+  const [kronos, setKronos] = useState(false)
   const change = ltp !== undefined && day?.prevClose ? ltp - day.prevClose : null
   const on = (strategies.data?.strategies ?? []).filter((s) => s.symbol === symbol)
   const lo = Math.min(day?.low ?? Infinity, ltp ?? Infinity)
@@ -200,10 +202,12 @@ function SymbolPanel({ account, symbol, ltp, day, onRemove }: { account: Account
                 <span className="row" style={{ gap: 6 }}><i style={{ width: 12, height: 2, background: '#7c93ff', display: 'inline-block' }} /> SMA 50</span>
               </>
             )}
+            {kronos && <span className="row" style={{ gap: 6 }}><i style={{ width: 12, height: 2, background: FORECAST, display: 'inline-block' }} /> Kronos</span>}
             <button className="sm" aria-pressed={smas} onClick={() => setSmas(!smas)}>Indicators</button>
+            <button className="sm" aria-pressed={kronos} onClick={() => setKronos(!kronos)} title="Predict the next bars with the Kronos model">Forecast</button>
           </div>
         </div>
-        <CandleChart accountId={account.id} symbol={symbol} tf={tf} smas={smas} lastPrice={ltp} />
+        <CandleChart accountId={account.id} symbol={symbol} tf={tf} smas={smas} forecast={kronos} lastPrice={ltp} />
       </section>
 
       <div className="grid-3">
@@ -294,11 +298,27 @@ function sma(bars: Bar[], n: number) {
 
 const UP = '#34d399'
 const DOWN = '#fb7185'
+const FORECAST = '#a78bfa'
+// Bars Kronos predicts, sampled runs (averaged into the purple candles; their spread gives the
+// band and the stats), and the most bars it reads (Kronos-small's context; the backend trims too).
+const HORIZON = 24
+const RUNS = 30
+const LOOKBACK = 512
 
-function CandleChart({ accountId, symbol, tf, smas, lastPrice }: { accountId: number; symbol: string; tf: Tf; smas: boolean; lastPrice?: number }) {
+type Forecast = Schemas['ForecastResponse']
+
+function CandleChart({ accountId, symbol, tf, smas, forecast, lastPrice }: { accountId: number; symbol: string; tf: Tf; smas: boolean; forecast: boolean; lastPrice?: number }) {
   const el = useRef<HTMLDivElement>(null)
   const chart = useRef<IChartApi | null>(null)
-  const series = useRef<{ candles: ISeriesApi<'Candlestick'>; volume: ISeriesApi<'Histogram'>; sma20: ISeriesApi<'Line'>; sma50: ISeriesApi<'Line'> } | null>(null)
+  const series = useRef<{
+    candles: ISeriesApi<'Candlestick'>
+    volume: ISeriesApi<'Histogram'>
+    sma20: ISeriesApi<'Line'>
+    sma50: ISeriesApi<'Line'>
+    predicted: ISeriesApi<'Candlestick'>
+    p10: ISeriesApi<'Line'>
+    p90: ISeriesApi<'Line'>
+  } | null>(null)
   const lastBar = useRef<Bar | null>(null)
   const intraday = TF_MIN[tf] !== undefined
 
@@ -311,6 +331,11 @@ function CandleChart({ accountId, symbol, tf, smas, lastPrice }: { accountId: nu
       }),
     )
   }, [symbol, tf])
+  const bars = useMemo(() => (candles.data ? aggregate(candles.data, tf) : null), [candles.data, tf])
+  const [predicted, setPredicted] = useState<{ key: string; data?: Forecast; error?: string } | null>(null)
+  // One forecast per loaded series: live ticks don't ask again, the next candle load does. Not
+  // while loading: `bars` is then the previous timeframe's candles regrouped. Kronos needs 32+.
+  const forecastKey = !candles.loading && bars && bars.length >= 32 ? `${symbol}|${tf}|${bars.at(-1)!.time}|${bars.length}` : null
 
   useEffect(() => {
     if (!el.current) return
@@ -329,7 +354,15 @@ function CandleChart({ accountId, symbol, tf, smas, lastPrice }: { accountId: nu
     const line = { lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false } as const
     const sma20 = c.addSeries(LineSeries, { ...line, color: '#fbbf24' })
     const sma50 = c.addSeries(LineSeries, { ...line, color: '#7c93ff' })
-    series.current = { candles, volume, sma20, sma50 }
+    const predicted = c.addSeries(CandlestickSeries, {
+      upColor: 'rgba(167,139,250,0.55)', downColor: 'rgba(167,139,250,0.25)', borderVisible: true,
+      borderUpColor: FORECAST, borderDownColor: FORECAST, wickUpColor: FORECAST, wickDownColor: FORECAST,
+      lastValueVisible: false, priceLineVisible: false,
+    })
+    const band = { ...line, color: FORECAST, lineStyle: LineStyle.Dashed }
+    const p10 = c.addSeries(LineSeries, band)
+    const p90 = c.addSeries(LineSeries, band)
+    series.current = { candles, volume, sma20, sma50, predicted, p10, p90 }
     chart.current = c
     return () => {
       c.remove()
@@ -340,8 +373,7 @@ function CandleChart({ accountId, symbol, tf, smas, lastPrice }: { accountId: nu
 
   useEffect(() => {
     const s = series.current
-    if (!s || !candles.data) return
-    const bars = aggregate(candles.data, tf)
+    if (!s || !bars) return
     s.candles.setData(bars)
     s.volume.setData(bars.map((b) => ({ time: b.time, value: b.volume, color: b.close >= b.open ? 'rgba(52,211,153,0.35)' : 'rgba(251,113,133,0.35)' })))
     s.sma20.setData(smas ? sma(bars, 20) : [])
@@ -349,7 +381,36 @@ function CandleChart({ accountId, symbol, tf, smas, lastPrice }: { accountId: nu
     lastBar.current = bars.at(-1) ?? null
     const ts = chart.current?.timeScale()
     if (ts && bars.length) ts.setVisibleLogicalRange({ from: Math.max(0, bars.length - 120), to: bars.length + 2 })
-  }, [candles.data, tf, smas])
+  }, [bars, smas])
+
+  // Kronos forecast of the next HORIZON bars (POST /api/forecast), drawn after the last bar.
+  useEffect(() => {
+    if (!forecast || !forecastKey || !bars || predicted?.key === forecastKey) return
+    let current = true
+    unwrap(api.POST('/api/forecast', {
+      body: {
+        bars: bars.slice(-LOOKBACK).map((b) => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume })),
+        timeframe: tf,
+        horizon: HORIZON,
+        samples: RUNS,
+      },
+    }))
+      .then((data) => current && setPredicted({ key: forecastKey, data }))
+      .catch((e) => current && setPredicted({ key: forecastKey, error: errorMessage(e) }))
+    return () => { current = false }
+  }, [forecast, forecastKey, bars, tf, predicted?.key])
+
+  const shown = forecast && predicted?.key === forecastKey ? predicted.data : undefined
+  useEffect(() => {
+    const s = series.current
+    if (!s) return
+    const points = shown?.points ?? []
+    s.predicted.setData(points.map((p) => ({ time: p.time as UTCTimestamp, open: p.open, high: p.high, low: p.low, close: p.close })))
+    s.p10.setData(points.map((p) => ({ time: p.time as UTCTimestamp, value: p.close_p10 })))
+    s.p90.setData(points.map((p) => ({ time: p.time as UTCTimestamp, value: p.close_p90 })))
+    const n = bars?.length ?? 0
+    if (points.length && n) chart.current?.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 120), to: n + points.length + 2 })
+  }, [shown, bars])
 
   // Move the last bar with live ticks (intraday timeframes).
   useEffect(() => {
@@ -369,8 +430,97 @@ function CandleChart({ accountId, symbol, tf, smas, lastPrice }: { accountId: nu
   return (
     <>
       <ErrorBox error={candles.error} />
+      {forecast && !candles.loading && bars && bars.length < 32 && <div className="small muted" style={{ padding: '4px 0 8px' }}>Too few bars to forecast.</div>}
+      {forecast && forecastKey && <ForecastNote state={predicted?.key === forecastKey ? predicted : null} last={bars?.at(-1)?.close} />}
       {candles.data?.length === 0 && <div className="small muted" style={{ padding: '8px 0' }}>No candles for this range.</div>}
       <div className="candles" ref={el} />
+      {shown && bars && <ForecastStats forecast={shown} bars={bars} />}
     </>
+  )
+}
+
+function ForecastNote({ state, last }: { state: { data?: Forecast; error?: string } | null; last?: number }) {
+  if (state?.error) return <ErrorBox error={`Forecast: ${state.error}`} />
+  const points = state?.data?.points
+  if (!points?.length) return <ForecastProgress />
+  const end = points.at(-1)!
+  const move = last ? ((end.close - last) / last) * 100 : null
+  return (
+    <div className="small muted" style={{ padding: '4px 0 8px' }}>
+      {state!.data!.model.split('/').at(-1)} · next {points.length} bars: close <span className="mono">{fmtNum(end.close)}</span>
+      {move !== null && <span className={`mono ${move >= 0 ? 'pos' : 'neg'}`}> {move >= 0 ? '▲' : '▼'} {fmtPct(move)}</span>}
+      {' '}· 10–90% range <span className="mono">{fmtNum(end.close_p10)}–{fmtNum(end.close_p90)}</span> · a model forecast, not advice
+    </div>
+  )
+}
+
+/** While a forecast runs (20–40 s; the first one also loads the model): what it's doing and for how long. */
+function ForecastProgress() {
+  const [seconds, setSeconds] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setSeconds((n) => n + 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <div className="fc-progress" role="status" aria-live="polite">
+      <div className="between small">
+        <span className="row" style={{ gap: 8 }}><span className="fc-pulse" /> Forecasting in progress · {RUNS} runs × next {HORIZON} candles</span>
+        <span className="mono muted">{seconds}s</span>
+      </div>
+      <div className="fc-track"><span /></div>
+      <div className="tiny muted">Usually 20–40 seconds; the first forecast after a restart also loads the model.</div>
+    </div>
+  )
+}
+
+/** Standard deviation of bar-to-bar returns. */
+function swing(closes: number[]): number {
+  const r = closes.slice(1).map((c, i) => c / closes[i] - 1)
+  const mean = r.reduce((a, b) => a + b, 0) / r.length
+  return Math.sqrt(r.reduce((a, b) => a + (b - mean) ** 2, 0) / r.length)
+}
+
+/** How the sampled runs end: direction, swing against the last real bars, mean and spread. */
+function ForecastStats({ forecast, bars }: { forecast: Forecast; bars: Bar[] }) {
+  const runs = forecast.runs
+  const n = runs[0]?.length ?? 0
+  if (!runs.length || !n) return null
+  const last = bars.at(-1)!.close
+  const finals = runs.map((r) => r.at(-1)!)
+  const up = finals.filter((c) => c > last).length
+  const real = swing(bars.slice(-(n + 1)).map((b) => b.close))
+  const wilder = runs.filter((r) => swing([last, ...r]) > real).length
+  const mean = finals.reduce((a, b) => a + b, 0) / finals.length
+  const upPct = (up / runs.length) * 100
+  const wildPct = (wilder / runs.length) * 100
+  return (
+    <div className="fc-grid">
+      <div className="fc-cell wide">
+        <div className="caps">Direction of the runs · next {n} candles</div>
+        <div style={{ marginTop: 6 }}>
+          <div className="between small" style={{ fontWeight: 600 }}><span className="pos">▲ Up</span><span className="neg">Down ▼</span></div>
+          <div className="between"><span className="figure pos">{upPct.toFixed(0)}%</span><span className="figure neg">{(100 - upPct).toFixed(0)}%</span></div>
+        </div>
+        <div className="fc-split"><span style={{ width: `${upPct}%` }} /></div>
+        <div className="small muted"><b className="fc-em">{up} of {runs.length}</b> runs ended above the last close of {fmtMoney(last)}; <b className="fc-em">{runs.length - up} of {runs.length}</b> ended at or below it.</div>
+      </div>
+      <div className="fc-cell wide">
+        <div className="caps">Volatility amplification</div>
+        <div className="figure fc-amber" style={{ marginTop: 6 }}>{wildPct.toFixed(0)}%</div>
+        <div className="fc-meter"><span style={{ width: `${wildPct}%` }} /></div>
+        <div className="small muted"><b className="fc-em">{wilder} of {runs.length}</b> runs swing harder over the next {n} candles than the last {n} real ones did.</div>
+      </div>
+      <div className="fc-cell">
+        <div className="caps">Mean forecast</div>
+        <div className="figure md fc-amber" style={{ marginTop: 6 }}>{fmtMoney(mean)}</div>
+        <div className="small muted"><span className={mean >= last ? 'pos' : 'neg'}>{fmtPct(((mean - last) / last) * 100)}</span> after {n} candles</div>
+      </div>
+      <div className="fc-cell">
+        <div className="caps">Full range</div>
+        <div className="mono fc-amber" style={{ fontSize: 17, fontWeight: 500, marginTop: 6 }}>{fmtMoney(Math.min(...finals))} – {fmtMoney(Math.max(...finals))}</div>
+        <div className="small muted">lowest to highest run, {n} candles out</div>
+      </div>
+      <div className="tiny muted" style={{ gridColumn: '1 / -1' }}>{forecast.model.split('/').at(-1)} · {runs.length} sampled runs. A model forecast, not advice.</div>
+    </div>
   )
 }

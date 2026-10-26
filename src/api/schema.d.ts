@@ -716,6 +716,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forecast
+         * @description The next `horizon` bars after `bars`, predicted by Kronos: the mean of `samples` sampled
+         *     runs, the 10th-90th percentile of their closes, and every run's closes. Future bars fall in
+         *     NSE sessions. A forecast, not advice: the first one also downloads the model (a few seconds to a minute).
+         *     503 when forecasting isn't installed on this server.
+         */
+        post: operations["forecast_api_forecast_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -779,12 +802,94 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** Bar */
+        Bar: {
+            /**
+             * Time
+             * @description Bar start, IST wall clock as epoch seconds (as the chart plots it)
+             */
+            time: number;
+            /** Open */
+            open: number;
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+            /** Close */
+            close: number;
+            /**
+             * Volume
+             * @default 0
+             */
+            volume: number;
+        };
         /** Credentials */
         Credentials: {
             /** Username */
             username: string;
             /** Password */
             password: string;
+        };
+        /** ForecastPoint */
+        ForecastPoint: {
+            /** Time */
+            time: number;
+            /** Open */
+            open: number;
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+            /** Close */
+            close: number;
+            /** Volume */
+            volume: number;
+            /** Close P10 */
+            close_p10: number;
+            /** Close P90 */
+            close_p90: number;
+        };
+        /** ForecastRequest */
+        ForecastRequest: {
+            /**
+             * Bars
+             * @description Oldest first
+             */
+            bars: components["schemas"]["Bar"][];
+            /**
+             * Timeframe
+             * @enum {string}
+             */
+            timeframe: "1m" | "5m" | "15m" | "1h" | "1D" | "1W";
+            /**
+             * Horizon
+             * @description Bars to predict
+             * @default 24
+             */
+            horizon: number;
+            /**
+             * Samples
+             * @description Sampled runs, averaged; their spread gives the band
+             * @default 30
+             */
+            samples: number;
+        };
+        /** ForecastResponse */
+        ForecastResponse: {
+            /** Model */
+            model: string;
+            /**
+             * Timeframe
+             * @enum {string}
+             */
+            timeframe: "1m" | "5m" | "15m" | "1h" | "1D" | "1W";
+            /** Points */
+            points: components["schemas"]["ForecastPoint"][];
+            /**
+             * Runs
+             * @description Each sampled run's closes, one per point
+             */
+            runs: number[][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2417,6 +2522,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forecast_api_forecast_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForecastRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForecastResponse"];
                 };
             };
             /** @description Validation Error */
