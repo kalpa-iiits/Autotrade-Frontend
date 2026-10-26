@@ -1,0 +1,15 @@
+{
+  "name": "autotrade-frontend",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // React Router routes (/settings, /strategies/...) fall back to index.html.
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/auth/*"]
+  },
+  "vars": {
+    "BACKEND_URL": "https://trade.cvexpert.in"
+  }
+}
