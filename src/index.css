@@ -277,18 +277,20 @@ th:last-child, td:last-child { padding-right: 18px; }
 .chart-svg { width: 100%; display: block; overflow: visible; }
 .chart-svg text { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
 .candles { height: 340px; width: 100%; }
+.chart-wrap { position: relative; }
 
 /* Kronos forecast: progress while it runs, then how the sampled runs end. */
 .fc-progress { display: grid; gap: 8px; padding: 10px 12px; margin: 4px 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--raised); }
-.fc-pulse { width: 8px; height: 8px; border-radius: 50%; background: #a78bfa; animation: fc-pulse 1.2s ease-in-out infinite; }
+.fc-pulse { width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; animation: fc-pulse 1.2s ease-in-out infinite; }
 .fc-track { height: 4px; border-radius: 999px; background: var(--idle); overflow: hidden; position: relative; }
-.fc-track > span { position: absolute; inset: 0 auto 0 0; width: 35%; border-radius: 999px; background: #a78bfa; animation: fc-slide 1.4s ease-in-out infinite; }
+.fc-track > span { position: absolute; inset: 0 auto 0 0; width: 35%; border-radius: 999px; background: #f59e0b; animation: fc-slide 1.4s ease-in-out infinite; }
 @keyframes fc-pulse { 50% { opacity: 0.3; } }
 @keyframes fc-slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
 @media (prefers-reduced-motion: reduce) { .fc-pulse, .fc-track > span { animation: none; } .fc-track > span { width: 100%; opacity: 0.5; } }
 .fc-grid { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 14px; }
 .fc-cell { display: grid; gap: 8px; align-content: start; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--raised); min-width: 0; }
 .fc-amber { color: #fbbf24; }
+.fc-caption { position: absolute; left: 8px; bottom: 34px; z-index: 3; max-width: min(440px, calc(100% - 80px)); padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: rgb(16 20 27 / 0.92); color: var(--muted); pointer-events: none; }
 .fc-em { color: var(--text); font-weight: 600; }
 .fc-split { height: 8px; border-radius: 999px; background: var(--loss); overflow: hidden; }
 .fc-split > span { display: block; height: 100%; background: var(--profit); }

@@ -3,7 +3,6 @@ import {
   ColorType,
   HistogramSeries,
   LineSeries,
-  LineStyle,
   createChart,
   type CandlestickData,
   type IChartApi,
@@ -16,6 +15,7 @@ import { useCurrentAccount } from '../accounts'
 import { api, errorMessage, unwrap, type Schemas } from '../api/client'
 import type { Account, Candle } from '../api/types'
 import { Sparkline } from '../components/charts'
+import { ForecastFan } from '../components/forecastFan'
 import { Icon } from '../components/icons'
 import { InstrumentInput } from '../components/InstrumentInput'
 import { Page } from '../components/Page'
@@ -298,9 +298,8 @@ function sma(bars: Bar[], n: number) {
 
 const UP = '#34d399'
 const DOWN = '#fb7185'
-const FORECAST = '#a78bfa'
-// Bars Kronos predicts, sampled runs (averaged into the purple candles; their spread gives the
-// band and the stats), and the most bars it reads (Kronos-small's context; the backend trims too).
+const FORECAST = '#f59e0b'
+// Bars Kronos predicts, sampled runs (drawn as a fan around their mean; they also give the stats), and the most bars it reads (Kronos-small's context; the backend trims too).
 const HORIZON = 24
 const RUNS = 30
 const LOOKBACK = 512
@@ -315,9 +314,8 @@ function CandleChart({ accountId, symbol, tf, smas, forecast, lastPrice }: { acc
     volume: ISeriesApi<'Histogram'>
     sma20: ISeriesApi<'Line'>
     sma50: ISeriesApi<'Line'>
-    predicted: ISeriesApi<'Candlestick'>
-    p10: ISeriesApi<'Line'>
-    p90: ISeriesApi<'Line'>
+    mean: ISeriesApi<'Line'>
+    fan: ForecastFan
   } | null>(null)
   const lastBar = useRef<Bar | null>(null)
   const intraday = TF_MIN[tf] !== undefined
@@ -354,15 +352,11 @@ function CandleChart({ accountId, symbol, tf, smas, forecast, lastPrice }: { acc
     const line = { lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false } as const
     const sma20 = c.addSeries(LineSeries, { ...line, color: '#fbbf24' })
     const sma50 = c.addSeries(LineSeries, { ...line, color: '#7c93ff' })
-    const predicted = c.addSeries(CandlestickSeries, {
-      upColor: 'rgba(167,139,250,0.55)', downColor: 'rgba(167,139,250,0.25)', borderVisible: true,
-      borderUpColor: FORECAST, borderDownColor: FORECAST, wickUpColor: FORECAST, wickDownColor: FORECAST,
-      lastValueVisible: false, priceLineVisible: false,
-    })
-    const band = { ...line, color: FORECAST, lineStyle: LineStyle.Dashed }
-    const p10 = c.addSeries(LineSeries, band)
-    const p90 = c.addSeries(LineSeries, band)
-    series.current = { candles, volume, sma20, sma50, predicted, p10, p90 }
+    // The forecast: the runs' mean as a line (with its price on the axis), the runs behind it.
+    const mean = c.addSeries(LineSeries, { color: FORECAST, lineWidth: 3, priceLineVisible: false, lastValueVisible: true })
+    const fan = new ForecastFan()
+    mean.attachPrimitive(fan)
+    series.current = { candles, volume, sma20, sma50, mean, fan }
     chart.current = c
     return () => {
       c.remove()
@@ -375,7 +369,6 @@ function CandleChart({ accountId, symbol, tf, smas, forecast, lastPrice }: { acc
     const s = series.current
     if (!s || !bars) return
     s.candles.setData(bars)
-    s.volume.setData(bars.map((b) => ({ time: b.time, value: b.volume, color: b.close >= b.open ? 'rgba(52,211,153,0.35)' : 'rgba(251,113,133,0.35)' })))
     s.sma20.setData(smas ? sma(bars, 20) : [])
     s.sma50.setData(smas ? sma(bars, 50) : [])
     lastBar.current = bars.at(-1) ?? null
@@ -401,15 +394,26 @@ function CandleChart({ accountId, symbol, tf, smas, forecast, lastPrice }: { acc
   }, [forecast, forecastKey, bars, tf, predicted?.key])
 
   const shown = forecast && predicted?.key === forecastKey ? predicted.data : undefined
+  // Volume (real, then the forecast's mean volume in amber) and the forecast fan from the last bar.
   useEffect(() => {
     const s = series.current
-    if (!s) return
+    if (!s || !bars) return
     const points = shown?.points ?? []
-    s.predicted.setData(points.map((p) => ({ time: p.time as UTCTimestamp, open: p.open, high: p.high, low: p.low, close: p.close })))
-    s.p10.setData(points.map((p) => ({ time: p.time as UTCTimestamp, value: p.close_p10 })))
-    s.p90.setData(points.map((p) => ({ time: p.time as UTCTimestamp, value: p.close_p90 })))
-    const n = bars?.length ?? 0
-    if (points.length && n) chart.current?.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 120), to: n + points.length + 2 })
+    const last = bars.at(-1)
+    const start = last && points.length ? [{ time: last.time, value: last.close }] : []
+    s.volume.setData([
+      ...bars.map((b) => ({ time: b.time, value: b.volume, color: b.close >= b.open ? 'rgba(52,211,153,0.35)' : 'rgba(251,113,133,0.35)' })),
+      ...points.map((p) => ({ time: p.time as UTCTimestamp, value: p.volume, color: 'rgba(245,158,11,0.45)' })),
+    ])
+    s.mean.setData([...start, ...points.map((p) => ({ time: p.time as UTCTimestamp, value: p.close }))])
+    s.fan.setData(last && shown && points.length ? {
+      start: { time: last.time, close: last.close },
+      times: points.map((p) => p.time as UTCTimestamp),
+      runs: shown.runs,
+    } : null)
+    const n = bars.length
+    // Zoom to the forecast: about as many real bars before it as it predicts.
+    if (points.length && n) chart.current?.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - Math.max(30, points.length)), to: n + points.length + 3 })
   }, [shown, bars])
 
   // Move the last bar with live ticks (intraday timeframes).
@@ -433,7 +437,10 @@ function CandleChart({ accountId, symbol, tf, smas, forecast, lastPrice }: { acc
       {forecast && !candles.loading && bars && bars.length < 32 && <div className="small muted" style={{ padding: '4px 0 8px' }}>Too few bars to forecast.</div>}
       {forecast && forecastKey && <ForecastNote state={predicted?.key === forecastKey ? predicted : null} last={bars?.at(-1)?.close} />}
       {candles.data?.length === 0 && <div className="small muted" style={{ padding: '8px 0' }}>No candles for this range.</div>}
-      <div className="candles" ref={el} />
+      <div className="chart-wrap">
+        <div className="candles" ref={el} />
+        {shown && bars && <ForecastCaption forecast={shown} last={bars.at(-1)!.close} />}
+      </div>
       {shown && bars && <ForecastStats forecast={shown} bars={bars} />}
     </>
   )
@@ -447,9 +454,9 @@ function ForecastNote({ state, last }: { state: { data?: Forecast; error?: strin
   const move = last ? ((end.close - last) / last) * 100 : null
   return (
     <div className="small muted" style={{ padding: '4px 0 8px' }}>
-      {state!.data!.model.split('/').at(-1)} · next {points.length} bars: close <span className="mono">{fmtNum(end.close)}</span>
+      {state!.data!.model.split('/').at(-1)} · mean of {state!.data!.runs.length} runs, next {points.length} bars: close <span className="mono">{fmtNum(end.close)}</span>
       {move !== null && <span className={`mono ${move >= 0 ? 'pos' : 'neg'}`}> {move >= 0 ? '▲' : '▼'} {fmtPct(move)}</span>}
-      {' '}· 10–90% range <span className="mono">{fmtNum(end.close_p10)}–{fmtNum(end.close_p90)}</span> · a model forecast, not advice
+      {' '}· a model forecast, not advice
     </div>
   )
 }
@@ -469,6 +476,19 @@ function ForecastProgress() {
       </div>
       <div className="fc-track"><span /></div>
       <div className="tiny muted">Usually 20–40 seconds; the first forecast after a restart also loads the model.</div>
+    </div>
+  )
+}
+
+/** One line over the chart: how the runs end against the last close. */
+function ForecastCaption({ forecast, last }: { forecast: Forecast; last: number }) {
+  const finals = forecast.runs.map((r) => r.at(-1)!).filter((c) => c !== undefined)
+  if (!finals.length) return null
+  const up = finals.filter((c) => c > last).length
+  return (
+    <div className="fc-caption small">
+      <b className="fc-em">{up} of {finals.length}</b> runs end higher and <b className="fc-em">{finals.length - up}</b> end lower than {fmtMoney(last)};
+      range <b className="fc-em">{fmtMoney(Math.min(...finals))}</b> to <b className="fc-em">{fmtMoney(Math.max(...finals))}</b>.
     </div>
   )
 }
