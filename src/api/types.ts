@@ -110,14 +110,12 @@ export interface ClosedTrades {
   totals: { count: number; realized_pnl: number; wins: number; losses: number; win_rate: number | null }
 }
 
-export type Mode = 'signal' | 'live'
 export type InstanceStatus = 'stopped' | 'running' | 'error' | 'archived' | 'removed' | (string & {})
 
 export interface Deployment {
   key: string
   strategy: string
   description: string
-  mode: Mode
   default_symbol: string | null
   default_timeframe: string
   timeframes: string[]
@@ -136,7 +134,6 @@ export interface Instance {
   timeframe: string
   timeframes: string[]
   params: Record<string, unknown>
-  mode: Mode
   status: InstanceStatus
   quantity: number
   max_order_qty: number
@@ -161,7 +158,6 @@ export interface Instance {
 }
 
 export interface StrategiesList {
-  live_trading_enabled: boolean
   deployments: Deployment[]
   strategies: Instance[]
 }
@@ -200,7 +196,6 @@ export interface CatalogStrategy {
   tags: string[]
   rules: StrategyRule[]
   params: StrategyParam[]
-  mode: Mode
   default_symbol: string | null
   default_timeframe: string
   timeframes: string[]
@@ -302,7 +297,6 @@ export interface Signal {
   quantity: number
   price: number | null
   reason: string | null
-  mode: Mode
   outcome: string
   message: string | null
   order_id: string | null

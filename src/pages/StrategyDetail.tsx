@@ -54,12 +54,11 @@ export default function StrategyDetail() {
   )
 }
 
-/** Under the page title: mode and tags, then what the strategy does. */
+/** Under the page title: tags, then what the strategy does. */
 function Intro({ s }: { s: CatalogStrategy }) {
   return (
     <div className="strategy-intro">
       <div className="row" style={{ gap: 8 }}>
-        <Pill tone={s.mode === 'live' ? 'bad' : 'info'} dot={s.mode === 'live' ? 'bad' : 'info'}>{s.mode === 'live' ? 'Live orders' : 'Signals only'}</Pill>
         {s.tags.map((t) => <Pill key={t}>{t}</Pill>)}
       </div>
       <p>{s.description}</p>
@@ -167,7 +166,7 @@ function DeployPanel({ s, account }: { s: CatalogStrategy; account: Account }) {
       <section className="card stack" id="deploy">
         <div>
           <h2 style={{ fontSize: 17 }}>Deploy on {account.label}</h2>
-          <p className="small muted" style={{ marginTop: 4 }}>Added stopped, in {s.mode} mode — {s.mode === 'live' ? 'it places real orders once started.' : 'it records signals without placing orders.'}</p>
+          <p className="small muted" style={{ marginTop: 4 }}>Added stopped. Once started, it places real orders on this account.</p>
         </div>
         <form className="stack" onSubmit={submit}>
           <div className="row" style={{ alignItems: 'flex-start', gap: 16 }}>

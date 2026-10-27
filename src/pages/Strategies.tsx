@@ -161,7 +161,7 @@ function AccountStrategies({ account }: { account: Account }) {
 
   return (
     <>
-      {d && <LiveSwitch on={d.live_trading_enabled} />}
+      {d && <RealOrdersNote account={account} />}
       <ErrorBox error={list.error ?? error} />
 
       <div className="between">
@@ -195,7 +195,6 @@ function AccountStrategies({ account }: { account: Account }) {
             key={inst.id}
             inst={inst}
             account={account}
-            liveEnabled={!!d?.live_trading_enabled}
             todayPnl={pnl.get(inst.label)}
             onChange={replace}
             onRemoved={reload}
@@ -214,24 +213,23 @@ function AccountStrategies({ account }: { account: Account }) {
   )
 }
 
-/** The server's AUTOTRADE_STRATEGIES_LIVE_ENABLED switch, explained in plain words. */
-function LiveSwitch({ on }: { on: boolean }) {
+/** What running a strategy means: real orders on this account (a paper account to try one out). */
+function RealOrdersNote({ account }: { account: Account }) {
+  const paper = account.broker === 'paper'
   return (
     <div className="card row" style={{ gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
-      <span className="inset" style={{ padding: 10, display: 'grid', placeItems: 'center', color: on ? 'var(--loss)' : 'var(--muted)' }}>
+      <span className="inset" style={{ padding: 10, display: 'grid', placeItems: 'center', color: paper ? 'var(--paper)' : 'var(--loss)' }}>
         <Icon name="shield" size={20} />
       </span>
       <div className="grow" style={{ minWidth: 280 }}>
         <div className="row" style={{ marginBottom: 4 }}>
-          <b>{on ? 'Live trading is on' : 'Live trading is off'}</b>
-          {on ? <Pill tone="bad">Live orders</Pill> : <Pill>Signals only</Pill>}
+          <b>Running strategies place real orders</b>
+          {paper ? <Pill tone="warn">Paper account</Pill> : <Pill tone="bad">Live orders</Pill>}
         </div>
         <div className="small muted">
-          {on ? (
-            <>Strategies in <b>live</b> mode place real broker orders. Set <code>AUTOTRADE_STRATEGIES_LIVE_ENABLED=false</code> and restart to go back to signals only.</>
-          ) : (
-            <>Strategies run and log their signals, but no live broker order is placed. This is a server safety switch — set <code>AUTOTRADE_STRATEGIES_LIVE_ENABLED=true</code> and restart to allow live orders.</>
-          )}
+          {paper
+            ? <>This is a paper account: its orders are simulated with virtual cash, nothing reaches a broker.</>
+            : <>Every running strategy sends its orders to {account.label}. To try one without real money, run it on a paper account.</>}
         </div>
       </div>
       <div className="row" style={{ gap: 28 }}>
@@ -251,7 +249,6 @@ function LiveSwitch({ on }: { on: boolean }) {
 function InstanceCard({
   inst,
   account,
-  liveEnabled,
   todayPnl,
   onChange,
   onRemoved,
@@ -260,7 +257,6 @@ function InstanceCard({
 }: {
   inst: Instance
   account: Account
-  liveEnabled: boolean
   todayPnl: number | undefined
   onChange: (i: Instance) => void
   onRemoved: () => void
@@ -295,12 +291,9 @@ function InstanceCard({
       void act(async () => onChange(await unwrap<Instance>(api.POST('/api/strategies/{instance_id}/stop', path))))
       return
     }
-    if (inst.mode === 'live') {
-      const msg = liveEnabled
-        ? `${inst.label} is in LIVE mode and will place REAL orders (${inst.quantity} per trade) on ${inst.symbol} with ${account.label}. Start?`
-        : `${inst.label} is in LIVE mode. The server's live switch is off, so its signals will be blocked. Start anyway?`
-      if (!window.confirm(msg)) return
-    }
+    const size = inst.sized_quantity ?? inst.quantity
+    const where = account.broker === 'paper' ? `${account.label} (paper: simulated orders)` : account.label
+    if (!window.confirm(`Start ${inst.label} on ${inst.symbol}? It places real orders (${size} per trade) on ${where}.`)) return
     void act(async () => onChange(await unwrap<Instance>(api.POST('/api/strategies/{instance_id}/start', path))))
   }
 
@@ -331,7 +324,6 @@ function InstanceCard({
       <div className="instance-main">
         <div className="row" style={{ gap: 8, flexWrap: 'nowrap' }}>
           <h3 className="ellipsis"><Link to={`/strategies/${inst.deployment_key}?symbol=${encodeURIComponent(inst.symbol)}&tf=${inst.timeframe}`} className="plain-link">{inst.label}</Link></h3>
-          <Pill tone={inst.mode === 'live' ? 'bad' : undefined}>{inst.mode}</Pill>
         </div>
         <p className="small muted instance-desc">{inst.description}</p>
         <div className="actions">
