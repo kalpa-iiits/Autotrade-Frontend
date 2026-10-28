@@ -25,7 +25,7 @@ export default function Settings() {
         </>
       }
     >
-      <div className="side-left" style={{ gridTemplateColumns: '200px minmax(0, 860px)' }}>
+      <div className="side-left settings-layout">
         <nav className="settings-nav" aria-label="Settings sections">
           {SECTIONS.map(([id, text]) => (
             <a

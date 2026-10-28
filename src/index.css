@@ -364,6 +364,7 @@ th:last-child, td:last-child { padding-right: 18px; }
 .bar-track > span { display: block; height: 100%; border-radius: 999px; background: var(--profit); }
 .bar-track.neg > span { background: var(--loss); }
 
+.side-left.settings-layout { grid-template-columns: 200px minmax(0, 860px); }
 .settings-nav { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 20px; }
 .settings-nav a { padding: 9px 12px; border-radius: var(--r-control); color: var(--text); text-decoration: none; font-size: 13px; }
 .settings-nav a:hover { background: var(--card); }
@@ -392,7 +393,11 @@ th:last-child, td:last-child { padding-right: 18px; }
   .sidebar-menu { display: none; }
   .sidebar.open .sidebar-menu { display: flex; flex-direction: column; gap: 4px; padding: 10px 0 4px; }
   .grid-3 { grid-template-columns: minmax(0, 1fr); }
-  .side-left { grid-template-columns: minmax(0, 1fr); }
+  .side-left, .side-left.settings-layout { grid-template-columns: minmax(0, 1fr); }
+  /* Settings' section menu: a row of tabs that stays under the top bar */
+  .settings-nav { flex-direction: row; overflow-x: auto; top: 57px; z-index: 5; margin: -8px -16px 0; padding: 8px 16px; background: var(--canvas); border-bottom: 1px solid var(--border); }
+  .settings-nav a { white-space: nowrap; }
+  .settings-layout [id] { scroll-margin-top: 120px; }
   .page-head, .page-body, .mode-band { padding-left: 16px; padding-right: 16px; }
   .search-trigger { min-width: 0; }
 }
