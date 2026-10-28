@@ -21,7 +21,7 @@ export default function Landing() {
   )
 }
 
-function Logo() {
+export function Logo() {
   return (
     <span className="lp-logo">
       <span className="lp-mark"><Icon name="logo" size={15} /></span>
@@ -466,7 +466,8 @@ function FinalCta() {
   )
 }
 
-function Footer() {
+/** `anchorBase`: prefix for the in-page links, for pages other than the landing page ("/welcome"). */
+export function Footer({ anchorBase = '' }: { anchorBase?: string }) {
   return (
     <footer className="lp-footer">
       <div className="lp-wrap">
@@ -478,15 +479,15 @@ function Footer() {
           <div className="lp-foot-cols">
             <div>
               <div className="lp-eyebrow muted">Product</div>
-              <a href="#strategies">Strategies</a>
-              <a href="#pricing">Pricing</a>
-              <a href="#safety">Safety</a>
+              <a href={`${anchorBase}#strategies`}>Strategies</a>
+              <a href={`${anchorBase}#pricing`}>Pricing</a>
+              <a href={`${anchorBase}#safety`}>Safety</a>
             </div>
             <div>
               <div className="lp-eyebrow muted">Legal</div>
-              <a href="#terms">Terms</a>
-              <a href="#privacy">Privacy</a>
-              <a href="#risk">Risk disclosure</a>
+              <Link to="/terms">Terms</Link>
+              <Link to="/privacy">Privacy</Link>
+              <Link to="/risk">Risk disclosure</Link>
             </div>
           </div>
         </div>

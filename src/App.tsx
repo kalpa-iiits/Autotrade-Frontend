@@ -13,6 +13,7 @@ import { isIstWeekday } from './market'
 import Accounts from './pages/Accounts'
 import Dashboard from './pages/Dashboard'
 import Landing from './pages/Landing'
+import Legal, { LEGAL_DOCS } from './pages/Legal'
 import Login from './pages/Login'
 import Market, { loadWatchlist } from './pages/Market'
 import Orders from './pages/Orders'
@@ -39,6 +40,7 @@ function Gate() {
   const { user } = useAuth()
   const { pathname } = useLocation()
   if (pathname === '/welcome') return <Landing />  // the public page, also while signed in
+  if (pathname in LEGAL_DOCS) return <Legal path={pathname} />  // terms, privacy, risk: public too
   if (user === undefined) return <div className="center muted">Loading…</div>
   if (user === null) {
     return (
