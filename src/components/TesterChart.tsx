@@ -53,7 +53,7 @@ export function TesterChart({
   useEffect(() => {
     const el = box.current
     if (!el) return
-    const ro = new ResizeObserver(([e]) => setWidth(Math.max(320, Math.floor(e.contentRect.width))))
+    const ro = new ResizeObserver(([e]) => setWidth(Math.max(240, Math.floor(e.contentRect.width))))
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
@@ -111,7 +111,8 @@ export function TesterChart({
   const bhLine = geo.bh.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)},${y(p.v).toFixed(1)}`).join('')
   const barW = Math.max(1, Math.min(9, slot * 0.6))
   const last = n ? trades[n - 1].cum_pnl : 0
-  const xLabels = n ? [0, 0.25, 0.5, 0.75, 1].map((f) => Math.min(n - 1, Math.round(f * (n - 1)))).filter((v, i, a) => a.indexOf(v) === i) : []
+  // Five date labels on a wide chart, three on a narrow (phone) one so they don't overlap.
+  const xLabels = n ? (plotW < 420 ? [0, 0.5, 1] : [0, 0.25, 0.5, 0.75, 1]).map((f) => Math.min(n - 1, Math.round(f * (n - 1)))).filter((v, i, a) => a.indexOf(v) === i) : []
 
   function onMove(e: MouseEvent<SVGSVGElement>) {
     if (!n) return

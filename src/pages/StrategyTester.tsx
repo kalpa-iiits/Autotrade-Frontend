@@ -317,7 +317,7 @@ function Overview({ d, s, account, t }: { d: Performance; s: CatalogStrategy; ac
   return (
     <>
       <div>
-        <div className="between" style={{ marginBottom: 8 }}>
+        <div className="between perf-head" style={{ marginBottom: 8 }}>
           <h3 className="tester-h">Performance</h3>
           {bh !== null && <span className="small muted">Buy &amp; hold over the range: <span className={bh >= 0 ? 'pos' : 'neg'}>{fmtMoney(bh, { sign: true })}</span></span>}
         </div>
@@ -347,7 +347,7 @@ function Compare({ s, account, t }: { s: CatalogStrategy; account: Account; t: R
   )
   return (
     <div className="inset" style={{ padding: 0 }}>
-      <div className="between" style={{ padding: '14px 16px 8px' }}>
+      <div className="between compare-head" style={{ padding: '14px 16px 8px' }}>
         <div>
           <div style={{ fontWeight: 600 }}>Compare timeframes</div>
           <div className="small muted" style={{ marginTop: 2 }}>The same {shortSymbol(t.symbol)} range on every timeframe. Click a row to open it.</div>

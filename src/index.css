@@ -459,7 +459,7 @@ a.plain-link:hover { color: var(--action); }
 .deploy-side { position: relative; min-height: 160px; }
 .deploy-side > .card { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
 .deploy-rows { flex: 1; min-height: 0; overflow-y: auto; }
-@media (max-width: 1180px) { .deploy-side > .card { position: static; max-height: 360px; } }
+@media (max-width: 1180px) { .deploy-side { min-height: 0; } .deploy-side > .card { position: static; max-height: 360px; } }
 .instance-row { width: 100%; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: none; justify-content: flex-start; min-height: 0; }
 
 /* ---------- strategy tester (TradingView-style) ---------- */
@@ -504,6 +504,14 @@ a.plain-link:hover { color: var(--action); }
 .legend-item.drawdowns i { height: 9px; background: rgb(251 113 133 / 0.35); }
 .legend-item.off { color: var(--faint); text-decoration: line-through; }
 .legend-item.off i { opacity: 0.3; }
+@media (max-width: 560px) {
+  /* strategy page on phones: tabs on one line (the row scrolls), legend above the chart, buttons full width */
+  .tester-bar .seg { max-width: 100%; overflow-x: auto; }
+  .tester-bar .seg button { white-space: nowrap; }
+  .legend { position: static; flex-direction: row; flex-wrap: wrap; margin-bottom: 8px; }
+  .perf-head { flex-wrap: wrap; gap: 0 12px; }
+  .compare-head { flex-direction: column; align-items: stretch; gap: 10px; }
+}
 table.matrix tr.cell { cursor: pointer; }
 table.matrix tr.cell:hover td { background: var(--raised); }
 table.matrix tr.cell.on td { background: var(--action-soft); }
