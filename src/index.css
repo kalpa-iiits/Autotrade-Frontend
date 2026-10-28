@@ -376,6 +376,7 @@ th:last-child, td:last-child { padding-right: 18px; }
 .secret { font-family: var(--mono); word-break: break-all; background: var(--sunken); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12px; }
 .setting-row { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-top: 1px solid var(--border); }
 
+.center.login-page { min-height: calc(100vh - 61px); } /* below the landing header */
 .login { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 14px; }
 
 /* ---------- responsive ---------- */

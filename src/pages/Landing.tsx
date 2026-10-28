@@ -1,10 +1,14 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon, type IconName } from '../components/icons'
 import './landing.css'
 
 /** The public front page: what CloudTrader does, for visitors who aren't signed in. */
 export default function Landing() {
+  // Arriving from another page at /welcome#pricing: the browser looked for #pricing before it rendered.
+  useEffect(() => {
+    if (window.location.hash) document.getElementById(window.location.hash.slice(1))?.scrollIntoView()
+  }, [])
   return (
     <div className="lp">
       <Nav />
@@ -30,19 +34,20 @@ export function Logo() {
   )
 }
 
-function Nav() {
+/** `anchorBase`: prefix for the section links, on pages other than the landing page ("/welcome"). */
+export function Nav({ anchorBase = '' }: { anchorBase?: string }) {
   const [open, setOpen] = useState(false) // the link panel on narrow screens
   const close = (e: React.MouseEvent) => { if ((e.target as Element).closest('a')) setOpen(false) }
   return (
     <header className="lp-nav">
       <div className="lp-wrap lp-nav-row">
-        <a href="#top" className="plain-link"><Logo /></a>
+        <a href={`${anchorBase}#top`} className="plain-link"><Logo /></a>
         <nav className="lp-links">
-          <a href="#how">How it works</a>
-          <a href="#strategies">Strategies</a>
-          <a href="#safety">Safety</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#faq">FAQ</a>
+          <a href={`${anchorBase}#how`}>How it works</a>
+          <a href={`${anchorBase}#strategies`}>Strategies</a>
+          <a href={`${anchorBase}#safety`}>Safety</a>
+          <a href={`${anchorBase}#pricing`}>Pricing</a>
+          <a href={`${anchorBase}#faq`}>FAQ</a>
         </nav>
         <div className="lp-nav-actions">
           <Link to="/login" className="lp-link-btn">Log in</Link>
@@ -54,11 +59,11 @@ function Nav() {
       </div>
       {open && (
         <nav className="lp-wrap lp-mobile-menu" onClick={close}>
-          <a href="#how">How it works</a>
-          <a href="#strategies">Strategies</a>
-          <a href="#safety">Safety</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#faq">FAQ</a>
+          <a href={`${anchorBase}#how`}>How it works</a>
+          <a href={`${anchorBase}#strategies`}>Strategies</a>
+          <a href={`${anchorBase}#safety`}>Safety</a>
+          <a href={`${anchorBase}#pricing`}>Pricing</a>
+          <a href={`${anchorBase}#faq`}>FAQ</a>
           <Link to="/login">Log in</Link>
         </nav>
       )}

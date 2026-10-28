@@ -1,9 +1,22 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { useLocation } from 'react-router-dom'
 import { ApiError, errorMessage } from '../api/client'
 import { useAuth } from '../auth'
 import { Icon } from '../components/icons'
+import { Nav } from './Landing'
 
 export default function Login() {
+  // Keyed by the query, so the header's "Start free" (?signup=1) and "Log in" switch the form.
+  const { search } = useLocation()
+  return (
+    <div className="lp">
+      <Nav anchorBase="/welcome" />
+      <LoginForm key={search} />
+    </div>
+  )
+}
+
+function LoginForm() {
   const { login, signup } = useAuth()
   const [mode, setMode] = useState<'signin' | 'signup'>(() => (new URLSearchParams(window.location.search).has('signup') ? 'signup' : 'signin'))
   const [username, setUsername] = useState('')
@@ -59,7 +72,7 @@ export default function Login() {
   const wait = lockedUntil ? Math.max(0, Math.ceil((lockedUntil - now) / 1000)) : 0
 
   return (
-    <div className="center">
+    <div className="center login-page">
       <form className="card login" onSubmit={submit}>
         <div className="brand" style={{ padding: 0 }}>
           <span className="brand-mark">
