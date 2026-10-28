@@ -98,6 +98,7 @@ function Sidebar() {
   const { accounts } = useAccounts()
   const { orders, strategies, reload } = useSummary()
   const [stopping, setStopping] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false) // the menu under the top bar, on narrow screens
   const running = strategies.data?.strategies.filter((s) => s.status === 'running').length ?? 0
   const loginNeeded = (accounts ?? []).some(needsLogin)
 
@@ -118,13 +119,18 @@ function Sidebar() {
 
   const initials = (user?.username ?? '?').slice(0, 2).toUpperCase()
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
       <div className="brand">
         <span className="brand-mark">
           <Icon name="logo" size={17} />
         </span>
         CloudTrader
+        <button className="ghost menu-toggle" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
+          <Icon name={menuOpen ? 'close' : 'menu'} size={18} />
+        </button>
       </div>
+      {/* Picking a page closes the menu on narrow screens. */}
+      <div className="sidebar-menu" onClick={(e) => { if ((e.target as Element).closest('a')) setMenuOpen(false) }}>
       <AccountSwitcher />
 
       <div className="nav-section caps">Overview</div>
@@ -162,6 +168,7 @@ function Sidebar() {
             Sign out
           </button>
         </div>
+      </div>
       </div>
     </aside>
   )

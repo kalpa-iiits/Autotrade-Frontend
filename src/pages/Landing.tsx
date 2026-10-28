@@ -31,6 +31,8 @@ export function Logo() {
 }
 
 function Nav() {
+  const [open, setOpen] = useState(false) // the link panel on narrow screens
+  const close = (e: React.MouseEvent) => { if ((e.target as Element).closest('a')) setOpen(false) }
   return (
     <header className="lp-nav">
       <div className="lp-wrap lp-nav-row">
@@ -45,8 +47,21 @@ function Nav() {
         <div className="lp-nav-actions">
           <Link to="/login" className="lp-link-btn">Log in</Link>
           <Link to="/login?signup=1" className="lp-btn primary sm">Start free</Link>
+          <button className="lp-menu-btn" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+            <Icon name={open ? 'close' : 'menu'} size={18} />
+          </button>
         </div>
       </div>
+      {open && (
+        <nav className="lp-wrap lp-mobile-menu" onClick={close}>
+          <a href="#how">How it works</a>
+          <a href="#strategies">Strategies</a>
+          <a href="#safety">Safety</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#faq">FAQ</a>
+          <Link to="/login">Log in</Link>
+        </nav>
+      )}
     </header>
   )
 }

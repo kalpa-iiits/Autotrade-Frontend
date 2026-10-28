@@ -81,6 +81,8 @@ code { font-family: var(--mono); font-size: 12px; background: var(--sunken); bor
 .nav-link.active svg { color: var(--text); }
 .nav-link .meta { margin-left: auto; font-size: 12px; color: var(--muted); font-family: var(--mono); }
 .nav-link .meta.running { color: var(--profit); font-family: var(--font); display: inline-flex; align-items: center; gap: 6px; }
+.sidebar-menu { display: contents; } /* a wrapper only on narrow screens, where it folds away */
+.menu-toggle { display: none; margin-left: auto; min-height: 0; padding: 6px; }
 .sidebar-foot { margin-top: auto; display: flex; flex-direction: column; gap: 14px; padding-top: 16px; }
 .user-row { display: flex; align-items: center; gap: 10px; padding: 0 6px; }
 .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--idle); display: grid; place-items: center; font-size: 11px; font-weight: 600; }
@@ -382,8 +384,12 @@ th:last-child, td:last-child { padding-right: 18px; }
   .split, .split.even, .side-right { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 900px) {
-  .shell { grid-template-columns: minmax(0, 1fr); }
-  .sidebar { position: static; height: auto; }
+  .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .sidebar { z-index: 30; height: auto; max-height: 100vh; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .sidebar .brand { padding: 2px 2px; }
+  .menu-toggle { display: grid; place-items: center; }
+  .sidebar-menu { display: none; }
+  .sidebar.open .sidebar-menu { display: flex; flex-direction: column; gap: 4px; padding: 10px 0 4px; }
   .grid-3 { grid-template-columns: minmax(0, 1fr); }
   .side-left { grid-template-columns: minmax(0, 1fr); }
   .page-head, .page-body, .mode-band { padding-left: 16px; padding-right: 16px; }
