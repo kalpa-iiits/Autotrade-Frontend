@@ -16,8 +16,8 @@ export function Sparkline({ values, width = 64, height = 22 }: { values: number[
   const d = values.map((v, i) => `${i ? 'L' : 'M'}${(i * step).toFixed(1)},${(height - 2 - ((v - min) / span) * (height - 4)).toFixed(1)}`).join('')
   const up = values[values.length - 1] >= values[0]
   return (
-    <svg width={width} height={height} aria-hidden="true">
-      <path d={d} fill="none" stroke={up ? 'var(--profit)' : 'var(--loss)'} strokeWidth={1.4} strokeLinejoin="round" />
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
+      <path d={d} fill="none" stroke={up ? 'var(--profit)' : 'var(--loss)'} strokeWidth={1.4} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
   )
 }
