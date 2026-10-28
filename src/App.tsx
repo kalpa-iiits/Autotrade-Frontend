@@ -120,7 +120,7 @@ function Sidebar() {
         <span className="brand-mark">
           <Icon name="logo" size={17} />
         </span>
-        AutoTrade
+        CloudTrader
       </div>
       <AccountSwitcher />
 

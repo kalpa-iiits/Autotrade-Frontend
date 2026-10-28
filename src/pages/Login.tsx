@@ -65,7 +65,7 @@ export default function Login() {
           <span className="brand-mark">
             <Icon name="logo" size={17} />
           </span>
-          AutoTrade
+          CloudTrader
         </div>
         <label className="field">
           Username

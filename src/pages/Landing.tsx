@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Icon, type IconName } from '../components/icons'
 import './landing.css'
 
-/** The public front page: what TradeSarathi does, for visitors who aren't signed in. */
+/** The public front page: what CloudTrader does, for visitors who aren't signed in. */
 export default function Landing() {
   return (
     <div className="lp">
@@ -25,7 +25,7 @@ function Logo() {
   return (
     <span className="lp-logo">
       <span className="lp-mark"><Icon name="logo" size={15} /></span>
-      TradeSarathi
+      CloudTrader
     </span>
   )
 }
@@ -75,7 +75,7 @@ function Hero() {
             <em>You get your day back.</em>
           </h1>
           <p className="lp-lead">
-            Pick a ready-made strategy, connect your broker once, and TradeSarathi places, trails and exits every
+            Pick a ready-made strategy, connect your broker once, and CloudTrader places, trails and exits every
             trade for you — strictly inside the limits you set. No staring at charts from 9:15 to 3:30.
           </p>
           <div className="lp-cta-row">
@@ -155,7 +155,7 @@ function Problem() {
             </ul>
           </div>
           <div className="lp-card accent">
-            <div className="lp-card-label">With TradeSarathi</div>
+            <div className="lp-card-label">With CloudTrader</div>
             <ul className="lp-list check">
               <li><Icon name="check" size={14} /> Rules fire on the candle close, every time, whether you’re watching or not</li>
               <li><Icon name="check" size={14} /> Stops are placed with the entry and trail automatically</li>
@@ -416,11 +416,11 @@ function Pricing() {
 
 const FAQ: [string, string][] = [
   ['Do I need to watch the market?', 'No. After a one-tap broker login each morning, your strategies place entries, stops and exits on their own. You can check in whenever you like — or not at all.'],
-  ['Is my money safe with TradeSarathi?', 'Your money never leaves your broker account. TradeSarathi connects through your broker’s official API and can only place and cancel orders — it can’t withdraw or move funds.'],
+  ['Is my money safe with CloudTrader?', 'Your money never leaves your broker account. CloudTrader connects through your broker’s official API and can only place and cancel orders — it can’t withdraw or move funds.'],
   ['Can I lose money?', 'Yes. Strategies follow their rules exactly, but markets can move against any rule, and fast markets can fill orders worse than expected. Start on paper money, and keep the quantity and daily order limits at a size you’re comfortable losing.'],
   ['What if I forget to log in to my broker?', 'You get a reminder at 08:45. Broker logins expire every day, so until you log in your strategies can’t place orders — nothing is sent on your behalf that day.'],
   ['Can I see exactly what a strategy does?', 'Yes. Every strategy’s page lists its entry, stop and exit rules in plain English, with a backtest on past prices. Every signal and order it sends is logged with the time and price.'],
-  ['Is TradeSarathi registered with the exchanges?', '[Add your NSE / BSE algo-provider empanelment and broker partnership details here.]'],
+  ['Is CloudTrader registered with the exchanges?', '[Add your NSE / BSE algo-provider empanelment and broker partnership details here.]'],
 ]
 
 function Faq() {
@@ -493,7 +493,7 @@ function Footer() {
         <div className="lp-legal">
           <p>Investments in the securities market are subject to market risks. Read all related documents carefully before investing. Algorithmic trading can result in losses, including losses larger than expected during fast markets. No returns are guaranteed, and strategy illustrations on this page are not a promise of future results.</p>
           <p>Algo provider empanelment: [NSE / BSE empanelment number] · Broker partners: [names] · Research Analyst registration: [number, if applicable]</p>
-          <p>© 2026 TradeSarathi. [Registered company name and address]</p>
+          <p>© 2026 CloudTrader. [Registered company name and address]</p>
         </div>
       </div>
     </footer>
