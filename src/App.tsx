@@ -121,10 +121,12 @@ function Sidebar() {
   return (
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
       <div className="brand">
-        <span className="brand-mark">
-          <Icon name="logo" size={17} />
-        </span>
-        CloudTrader
+        <NavLink to="/" className="brand-link" onClick={() => setMenuOpen(false)}>
+          <span className="brand-mark">
+            <Icon name="logo" size={17} />
+          </span>
+          CloudTrader
+        </NavLink>
         <button className="ghost menu-toggle" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
           <Icon name={menuOpen ? 'close' : 'menu'} size={18} />
         </button>
