@@ -54,9 +54,9 @@ function LoginForm() {
         setNow(Date.now())
         setError('Too many attempts from this address.')
       } else if (signingUp && err instanceof ApiError && err.status === 404) {
-        setError('Sign-up is turned off on this server. Ask its admin for a user.')
+        setError('Sign-up is turned off on this server. Ask its admin for an account.')
       } else {
-        setError(err instanceof ApiError && err.status === 401 ? 'Wrong username or password.' : errorMessage(err))
+        setError(err instanceof ApiError && err.status === 401 ? 'Wrong email or password.' : errorMessage(err))
       }
     } finally {
       setBusy(false)
@@ -81,8 +81,18 @@ function LoginForm() {
           CloudTrader
         </div>
         <label className="field">
-          Username
-          <input autoFocus autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required />
+          Email
+          {/* Sign-up needs a real email; sign-in also accepts an older account's plain username. */}
+          <input
+            autoFocus
+            type={signingUp ? 'email' : 'text'}
+            inputMode="email"
+            autoComplete={signingUp ? 'email' : 'username'}
+            placeholder="you@example.com"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
         </label>
         <label className="field">
           Password
@@ -110,10 +120,10 @@ function LoginForm() {
           </div>
         )}
         <button type="submit" className="primary lg" disabled={busy || wait > 0}>
-          {busy ? (signingUp ? 'Creating…' : 'Signing in…') : signingUp ? 'Create user' : 'Sign in'}
+          {busy ? (signingUp ? 'Creating…' : 'Signing in…') : signingUp ? 'Create account' : 'Sign in'}
         </button>
         <button type="button" className="link" onClick={switchMode}>
-          {signingUp ? 'I already have a user: sign in' : 'New here? Create a user'}
+          {signingUp ? 'I already have an account: sign in' : 'New here? Create an account'}
         </button>
       </form>
     </div>

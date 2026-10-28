@@ -63,7 +63,7 @@ export const LEGAL_DOCS: Record<string, LegalDoc> = {
     sections: [
       { heading: 'What we collect', body: [
         [
-          'Account details: your username and password (stored only as a secure hash).',
+          'Account details: your email address and password (the password stored only as a secure hash).',
           'Broker credentials you add, such as your broker app ID and secret, and the access token from each day’s broker login. These are encrypted at rest and never shown back in the app.',
           'Trading activity on CloudTrader: strategies you run, their settings, the signals they generate, and the orders, fills and positions synced from your broker.',
           'Technical data: IP address, browser type and request logs, used to run and secure the service.',
