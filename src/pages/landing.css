@@ -6,7 +6,7 @@
   background: var(--canvas);
   color: var(--text);
   min-height: 100vh;
-  overflow-x: hidden;
+  overflow-x: clip; /* not hidden: that would stop the nav from sticking */
 }
 .lp a { color: inherit; }
 .lp-wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 24px; }
@@ -26,6 +26,12 @@
 .lp-link-btn { font-size: 13px; text-decoration: none; color: var(--text); }
 .lp-menu-btn { display: none; place-items: center; width: 36px; height: 34px; min-height: 0; padding: 0; border: 1px solid var(--border-strong); border-radius: var(--r-control); background: var(--card); color: var(--text); cursor: pointer; }
 .lp-mobile-menu { display: none; }
+/* laptop and up: the nav floats, inset from the edges, over the page */
+@media (min-width: 961px) {
+  .lp-nav { top: 12px; width: min(1104px, calc(100% - 48px)); margin: 12px auto 0; border: 1px solid var(--border-strong); border-radius: 14px; box-shadow: 0 12px 32px rgb(0 0 0 / 0.4); }
+  .lp-nav .lp-wrap { padding: 0 18px; }
+  .lp-nav-row { height: 56px; }
+}
 
 /* buttons */
 .lp-btn {
@@ -88,6 +94,7 @@
 
 /* sections */
 .lp-section { padding: 88px 0; }
+.lp [id] { scroll-margin-top: 72px; } /* in-page links land below the sticky nav */
 .lp-rule { border-bottom: 1px solid var(--border); }
 .lp-eyebrow { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-text); font-weight: 600; margin-bottom: 14px; }
 .lp-eyebrow.muted { color: var(--muted); margin-bottom: 0; }
