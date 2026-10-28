@@ -397,8 +397,9 @@ function Pricing() {
           </div>
           <div className="lp-card lp-plan featured">
             <div className="between"><h3>Live</h3><span className="lp-pill solid">Most popular</span></div>
-            <div className="lp-price">[₹ PRICE] <span>/ month</span></div>
-            <p>Run strategies on your real broker account, fully automated.</p>
+            <div className="lp-price"><s>₹999</s> <span>/ month</span></div>
+            <div className="lp-trial">2 months free trial</div>
+            <p>Run strategies on your real broker account, fully automated. ₹999 / month after the trial.</p>
             <ul className="lp-list check">
               <li><Icon name="check" size={14} /> Everything in Paper</li>
               <li><Icon name="check" size={14} /> Live trading on Fyers and Zerodha</li>

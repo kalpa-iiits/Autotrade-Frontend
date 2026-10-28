@@ -171,6 +171,8 @@
 .lp-plan .between { display: flex; justify-content: space-between; align-items: center; }
 .lp-price { font-size: 34px; font-weight: 600; letter-spacing: -0.02em; }
 .lp-price span { font-size: 13px; color: var(--muted); font-weight: 400; letter-spacing: 0; }
+.lp-price s { color: var(--muted); text-decoration-thickness: 2px; text-decoration-color: var(--loss); }
+.lp-trial { margin-top: -6px; color: var(--profit); font-size: 15px; font-weight: 600; }
 .lp-plan p { margin: 0; }
 .lp-plan .lp-list { color: var(--text); flex: 1; }
 .lp-fineprint { color: var(--faint); font-size: 12px; margin-top: 20px; }
