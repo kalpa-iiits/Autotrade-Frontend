@@ -421,7 +421,6 @@ const FAQ: [string, string][] = [
   ['Can I lose money?', 'Yes. Strategies follow their rules exactly, but markets can move against any rule, and fast markets can fill orders worse than expected. Start on paper money, and keep the quantity and daily order limits at a size you’re comfortable losing.'],
   ['What if I forget to log in to my broker?', 'You get a reminder at 08:45. Broker logins expire every day, so until you log in your strategies can’t place orders — nothing is sent on your behalf that day.'],
   ['Can I see exactly what a strategy does?', 'Yes. Every strategy’s page lists its entry, stop and exit rules in plain English, with a backtest on past prices. Every signal and order it sends is logged with the time and price.'],
-  ['Is CloudTrader registered with the exchanges?', '[Add your NSE / BSE algo-provider empanelment and broker partnership details here.]'],
 ]
 
 function Faq() {
