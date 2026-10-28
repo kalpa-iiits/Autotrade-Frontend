@@ -498,7 +498,7 @@ function AddAccount({ specs, onAdded }: { specs: BrokerSpecs; onAdded: (a: Accou
         </label>
       )}
       <ErrorBox error={error} />
-      <div className="between" style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+      <div className="between form-foot" style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
         <span className="small muted row" style={{ gap: 6 }}>
           <Icon name="lock" size={13} /> Encrypted with your server key
         </span>

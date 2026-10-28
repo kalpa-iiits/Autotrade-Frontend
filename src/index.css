@@ -410,6 +410,14 @@ th:last-child, td:last-child { padding-right: 18px; }
 }
 @media (max-width: 560px) {
   .grid-4 { grid-template-columns: minmax(0, 1fr); }
+  .search-trigger { width: 100%; }
+  /* Accounts: each step's text wraps beside its number, not under it */
+  .how { flex-direction: column; align-items: stretch; gap: 10px; }
+  .how > span { display: flex; align-items: flex-start; }
+  .how .n { flex: none; }
+  /* Accounts form: the note above full-width buttons, Save first */
+  .form-foot { flex-direction: column; align-items: stretch; gap: 12px; }
+  .form-foot > div.row { flex-direction: column-reverse; align-items: stretch; }
   .grid-4.cols-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .quote-head { flex-direction: column; align-items: stretch !important; gap: 14px; }
   .quote-actions > button { flex: 1; }

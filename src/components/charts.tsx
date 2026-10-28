@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type MouseEvent } from 'react'
+import { useEffect, useId, useRef, useState, type MouseEvent } from 'react'
 
 export interface Point {
   /** Epoch ms. */
@@ -45,7 +45,16 @@ export function AreaChart({
   const id = useId().replace(/:/g, '')
   const ref = useRef<SVGSVGElement>(null)
   const [hover, setHover] = useState<number | null>(null)
-  const W = 600
+  // Drawn at the chart's real width, so its text keeps its size on a narrow (phone) screen.
+  const [W, setW] = useState(600)
+  const drawn = points.length >= 2
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const ro = new ResizeObserver(([e]) => setW(Math.max(240, Math.floor(e.contentRect.width))))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [drawn])
   const padR = 92
   const padB = 26
   const H = height
@@ -73,7 +82,7 @@ export function AreaChart({
   const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join('')
   const area = `${line}L${x(t1).toFixed(1)},${H - padB}L0,${H - padB}Z`
   const ticks = [max - pad, (max + min) / 2, min + pad]
-  const labels = 5
+  const labels = W < 420 ? 3 : 5
   const xTicks = Array.from({ length: labels }, (_, i) => t0 + ((t1 - t0) * i) / (labels - 1))
 
   function onMove(e: MouseEvent<SVGSVGElement>) {
