@@ -58,7 +58,7 @@ function Eyebrow({ children }: { children: ReactNode }) {
 /** A heading whose second part is set in the italic serif. */
 function Title({ plain, accent, after, center }: { plain: string; accent: string; after?: string; center?: boolean }) {
   return (
-    <h2 className={`lp-h2 ${center ? 'center' : ''}`}>
+    <h2 className={`lp-h2 ${center ? 'lp-center' : ''}`}>
       {plain} <em>{accent}</em>{after ? ` ${after}` : ''}
     </h2>
   )
@@ -408,7 +408,7 @@ function Pricing() {
             <Link to="/login?signup=1" className="lp-btn primary block">Go live</Link>
           </div>
         </div>
-        <p className="lp-fineprint center">Brokerage, taxes and exchange charges are billed by your broker, not by us.</p>
+        <p className="lp-fineprint lp-center">Brokerage, taxes and exchange charges are billed by your broker, not by us.</p>
       </div>
     </section>
   )
@@ -456,7 +456,7 @@ function FinalCta() {
         <div className="lp-final lp-dots">
           <Title plain="Let the rules trade." accent="You live your day." center />
           <p>Start on paper today. No card, no broker needed to try it.</p>
-          <div className="lp-cta-row center">
+          <div className="lp-cta-row lp-center">
             <Link to="/login?signup=1" className="lp-btn primary">Start free with paper money</Link>
             <a href="#strategies" className="lp-btn">Browse strategies</a>
           </div>
