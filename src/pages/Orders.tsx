@@ -72,9 +72,9 @@ function AccountOrders({ account }: { account: Account }) {
   const turnover = all.filter((o) => o.filled_quantity).reduce((s, o) => s + o.filled_quantity * (o.filled_price ?? 0), 0)
 
   return (
-    <div className="side-right" style={{ gridTemplateColumns: 'minmax(0, 1fr) 320px' }}>
+    <div className="side-right">
       <div className="stack">
-        <div className="grid-4" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
+        <div className="grid-4 cols-5">
           <MiniStat label="Open" value={count('OPEN')} tone="info" />
           <MiniStat label="Filled" value={count('FILLED')} />
           <MiniStat label="Cancelled" value={count('CANCELLED')} />

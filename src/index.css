@@ -402,8 +402,18 @@ th:last-child, td:last-child { padding-right: 18px; }
   .page-head, .page-body, .mode-band { padding-left: 16px; padding-right: 16px; }
   .search-trigger { min-width: 0; }
 }
+@media (min-width: 1181px) { .grid-4.cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (max-width: 1180px) { .grid-4.cols-5 > :last-child { grid-column: 1 / -1; } }
+@media (max-width: 900px) {
+  /* Market: two equal columns of stats (one would leave "Strategies on it" a stray column) */
+  .market-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 560px) {
   .grid-4 { grid-template-columns: minmax(0, 1fr); }
+  .grid-4.cols-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .quote-head { flex-direction: column; align-items: stretch !important; gap: 14px; }
+  .quote-actions > button { flex: 1; }
+  .chart-toolbar { flex-wrap: wrap; gap: 10px; }
   .choice-row { grid-auto-flow: row; }
 }
 

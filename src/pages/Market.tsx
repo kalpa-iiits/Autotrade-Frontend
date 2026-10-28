@@ -170,7 +170,7 @@ function SymbolPanel({ account, symbol, ltp, day, onRemove }: { account: Account
   return (
     <div className="stack">
       <section className="card">
-        <div className="between" style={{ alignItems: 'flex-start' }}>
+        <div className="between quote-head" style={{ alignItems: 'flex-start' }}>
           <div>
             <div className="row">
               <h2 style={{ fontSize: 18 }}>{shortSymbol(symbol)}</h2>
@@ -186,12 +186,12 @@ function SymbolPanel({ account, symbol, ltp, day, onRemove }: { account: Account
               )}
             </div>
           </div>
-          <div className="row">
+          <div className="row quote-actions">
             <button className="buy" style={{ minWidth: 72 }} onClick={() => navigate(`/orders?symbol=${encodeURIComponent(symbol)}&side=BUY`)}>Buy</button>
             <button className="sell" style={{ minWidth: 72 }} onClick={() => navigate(`/orders?symbol=${encodeURIComponent(symbol)}&side=SELL`)}>Sell</button>
           </div>
         </div>
-        <div className="between" style={{ margin: '16px 0 10px' }}>
+        <div className="between chart-toolbar" style={{ margin: '16px 0 10px' }}>
           <Seg label="Timeframe" mono value={tf} onChange={setTf} options={TFS.map((t) => ({ value: t, label: t }))} />
           <div className="row small muted">
             {smas && (
@@ -206,7 +206,7 @@ function SymbolPanel({ account, symbol, ltp, day, onRemove }: { account: Account
         <CandleChart accountId={account.id} symbol={symbol} tf={tf} smas={smas} lastPrice={ltp} />
       </section>
 
-      <div className="grid-3">
+      <div className="grid-3 market-stats">
         <div className="card stat"><div className="caps">Open</div><div className="mono" style={{ fontSize: 16, marginTop: 6 }}>{fmtNum(day?.open)}</div></div>
         <div className="card stat"><div className="caps">Prev close</div><div className="mono" style={{ fontSize: 16, marginTop: 6 }}>{fmtNum(day?.prevClose)}</div></div>
         <div className="card stat">

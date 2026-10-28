@@ -151,7 +151,7 @@ export default function Trades() {
       <ErrorBox error={trades.error} />
       {truncated && <div className="small muted">Showing the latest {all.length} of {trades.data?.totals.count} trades; stats below cover those.</div>}
 
-      <div className="grid-4" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
+      <div className="grid-4 cols-5">
         <div className="card stat">
           <div className="label">Net P&amp;L</div>
           <div className={`figure md ${stats.net > 0 ? 'pos' : stats.net < 0 ? 'neg' : ''}`}>{fmtMoney(stats.net, { sign: true, decimals: false })}</div>
