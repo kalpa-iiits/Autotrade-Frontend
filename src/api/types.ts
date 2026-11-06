@@ -160,6 +160,20 @@ export interface Instance {
 export interface StrategiesList {
   deployments: Deployment[]
   strategies: Instance[]
+  pagination: Pagination
+}
+
+export interface Pagination {
+  page: number
+  page_size: number
+  total: number
+  total_pages: number
+  counts?: { all: number; running: number; stopped: number }
+}
+
+export interface CatalogList {
+  strategies: CatalogStrategy[]
+  pagination: Pagination
 }
 
 /** A broker-native NSE search result. `symbol` is ready to send back to that broker. */

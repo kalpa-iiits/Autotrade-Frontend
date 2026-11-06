@@ -4,6 +4,7 @@ import { api, unwrap } from './api/client'
 import type { ClosedTrades, Funds, OpenTrades, Order, OrdersMessage, Position, StrategiesList } from './api/types'
 import { istDay, useLoad } from './components/ui'
 import { useLive } from './live'
+import { loadStrategies } from './strategies'
 
 // What the sidebar, the top bar and several pages all show for the selected account: funds,
 // today's orders, open positions and strategies. Loaded once here and refreshed after pushes on
@@ -45,7 +46,7 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
     [accountId],
   )
   const strategies = useLoad(
-    () => (accountId ? unwrap<StrategiesList>(api.GET('/api/strategies', { params: { query: { account_id: accountId } } })) : none<StrategiesList>()),
+    () => (accountId ? loadStrategies(accountId, 1, 100) : none<StrategiesList>()),
     [accountId],
   )
 

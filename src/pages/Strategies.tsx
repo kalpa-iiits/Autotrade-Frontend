@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { Link, useNavigate } from 'react-router-dom'
 import { brokerTitle, needsLogin, startBrokerLogin, useCurrentAccount } from '../accounts'
 import { api, errorMessage, unwrap } from '../api/client'
-import type { Account, CatalogStrategy, Instance, OrdersMessage, Signal } from '../api/types'
+import type { Account, CatalogStrategy, Instance, OrdersMessage, Pagination, Signal } from '../api/types'
 import { Sparkline } from '../components/charts'
 import { Icon } from '../components/icons'
 import { Page } from '../components/Page'
@@ -29,7 +29,7 @@ import {
   useLoad,
 } from '../components/ui'
 import { useLive } from '../live'
-import { DEFAULT_RANGE, loadCatalog, loadPerformance, presetRange, testSymbol, testTimeframe, sizingBody, sizingDraft, sizingValid, type SizingDraft } from '../strategies'
+import { DEFAULT_RANGE, loadCatalog, loadPerformance, loadStrategies, presetRange, testSymbol, testTimeframe, sizingBody, sizingDraft, sizingValid, type SizingDraft } from '../strategies'
 import { pnlByStrategy, useSummary } from '../summary'
 import { InstrumentInput } from '../components/InstrumentInput'
 import { SizingFields } from '../components/SizingFields'
@@ -67,17 +67,20 @@ export function MyStrategies() {
 
 
 function Library({ account }: { account: Account | null | undefined }) {
-  const catalog = useLoad(loadCatalog, [])
+  const [page, setPage] = useState(1)
+  const catalog = useLoad(() => loadCatalog(page), [page])
   const { strategies } = useSummary()
+  const items = catalog.data?.strategies ?? []
   return (
     <>
       <ErrorBox error={catalog.error} />
       <div className="stack">
-        {catalog.data?.map((s) => (
+        {items.map((s) => (
           <LibraryCard key={`${s.key}-${account?.id}`} s={s} account={account} instances={strategies.data?.strategies} />
         ))}
       </div>
-      {catalog.data?.length === 0 && <Card><Empty>No strategies are defined in code yet (app/strategies/deployments.py).</Empty></Card>}
+      {catalog.data && items.length === 0 && <Card><Empty>No strategies are defined in code yet (app/strategies/deployments.py).</Empty></Card>}
+      {catalog.data && <Pager pagination={catalog.data.pagination} onPage={setPage} />}
     </>
   )
 }
@@ -137,26 +140,41 @@ function LibraryCard({ s, account, instances }: { s: CatalogStrategy; account: A
 
 type Filter = 'all' | 'running' | 'stopped'
 
+function Pager({ pagination, onPage }: { pagination: Pagination; onPage(page: number): void }) {
+  if (pagination.total === 0) return null
+  return (
+    <div className="between card" style={{ padding: '10px 14px' }}>
+      <button className="sm" disabled={pagination.page <= 1} onClick={() => onPage(pagination.page - 1)}>Previous</button>
+      <span className="small muted">Page {pagination.page} of {pagination.total_pages} · {pagination.total} strategies</span>
+      <button className="sm" disabled={pagination.page >= pagination.total_pages} onClick={() => onPage(pagination.page + 1)}>Next</button>
+    </div>
+  )
+}
+
 function AccountStrategies({ account }: { account: Account }) {
-  const { strategies: list, closedToday, trades, reload } = useSummary()
+  const { closedToday, trades } = useSummary()
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
+  const [page, setPage] = useState(1)
+  const list = useLoad(() => loadStrategies(account.id, page, 5, filter), [account.id, page, filter])
+  const reloadList = list.reload
   const [signalsFor, setSignalsFor] = useState<Instance | null>(null)
   const [pushed, setPushed] = useState<Signal | null>(null)
 
   const onMessage = useCallback((msg: OrdersMessage) => {
     if (msg.type === 'strategy_signal') setPushed(msg.signal)
-  }, [])
+    if (msg.type === 'strategy_status') void reloadList()
+  }, [reloadList])
   useLive(onMessage)
 
   const d = list.data
   const insts = d?.strategies ?? []
-  const running = insts.filter((i) => i.status === 'running')
-  const shown = filter === 'all' ? insts : filter === 'running' ? running : insts.filter((i) => i.status !== 'running')
+  const counts = d?.pagination.counts ?? { all: 0, running: 0, stopped: 0 }
   const pnl = useMemo(() => pnlByStrategy(closedToday.data, trades.data), [closedToday.data, trades.data])
 
   function replace(updated: Instance) {
     list.setData((x) => x && { ...x, strategies: x.strategies.map((i) => (i.id === updated.id ? updated : i)) })
+    void list.reload() // refresh counts and move cards between filtered pages
   }
 
   return (
@@ -168,11 +186,11 @@ function AccountStrategies({ account }: { account: Account }) {
         <Seg
           label="Filter"
           value={filter}
-          onChange={setFilter}
+          onChange={(value) => { setFilter(value); setPage(1) }}
           options={[
-            { value: 'all', label: 'All', count: insts.length },
-            { value: 'running', label: 'Running', count: running.length },
-            { value: 'stopped', label: 'Stopped', count: insts.length - running.length },
+            { value: 'all', label: 'All', count: counts.all },
+            { value: 'running', label: 'Running', count: counts.running },
+            { value: 'stopped', label: 'Stopped', count: counts.stopped },
           ]}
         />
         <span className="small muted">
@@ -180,29 +198,30 @@ function AccountStrategies({ account }: { account: Account }) {
         </span>
       </div>
 
-      {d && insts.length === 0 && (
+      {d && counts.all === 0 && (
         <Card>
           <Empty action={<Link to="/strategies"><button className="sm">Browse strategies</button></Link>}>
             No strategies on {account.label} yet. Open one on the Strategies page and add it from its Deploy section.
           </Empty>
         </Card>
       )}
-      {d && insts.length > 0 && shown.length === 0 && <Card><Empty>No {filter} strategies.</Empty></Card>}
+      {d && counts.all > 0 && insts.length === 0 && <Card><Empty>No {filter} strategies.</Empty></Card>}
 
       <div className="stack">
-        {shown.map((inst) => (
+        {insts.map((inst) => (
           <InstanceCard
             key={inst.id}
             inst={inst}
             account={account}
             todayPnl={pnl.get(inst.label)}
             onChange={replace}
-            onRemoved={reload}
+            onRemoved={() => insts.length === 1 && page > 1 ? setPage(page - 1) : void reloadList()}
             onError={setError}
             onSignals={() => setSignalsFor(inst)}
           />
         ))}
       </div>
+      {d && <Pager pagination={d.pagination} onPage={setPage} />}
 
       {signalsFor && (
         <Modal title={`Signal log — ${signalsFor.label}`} onClose={() => setSignalsFor(null)} wide>

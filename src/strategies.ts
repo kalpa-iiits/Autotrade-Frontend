@@ -1,6 +1,6 @@
 // Shared by the strategy list and a strategy's page: loading the catalog and the strategy tester.
 import { api, unwrap } from './api/client'
-import type { Account, CatalogStrategy, InstrumentSuggestion, Performance, PerformanceMatrix, SizeMode } from './api/types'
+import type { Account, CatalogList, CatalogStrategy, InstrumentSuggestion, Performance, PerformanceMatrix, SizeMode, StrategiesList } from './api/types'
 import { istDay } from './components/ui'
 
 export const DEFAULT_CAPITAL = 500_000
@@ -40,8 +40,23 @@ export function presetRange(p: RangePreset, now = new Date()): DateRange {
   return { start, end }
 }
 
-export function loadCatalog() {
-  return unwrap<CatalogStrategy[]>(api.GET('/api/strategies/catalog'))
+async function paginated<T>(path: string): Promise<T> {
+  const response = await fetch(path, { credentials: 'include' })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { detail?: string } | null
+    throw new Error(body?.detail || `Request failed (HTTP ${response.status})`)
+  }
+  return response.json() as Promise<T>
+}
+
+export function loadCatalog(page = 1, pageSize = 5) {
+  return paginated<CatalogList>(`/api/strategies/catalog?page=${page}&page_size=${pageSize}`)
+}
+
+export function loadStrategies(accountId?: number, page = 1, pageSize = 5, status: 'all' | 'running' | 'stopped' = 'all') {
+  const query = new URLSearchParams({ page: String(page), page_size: String(pageSize), status })
+  if (accountId) query.set('account_id', String(accountId))
+  return paginated<StrategiesList>(`/api/strategies?${query}`)
 }
 
 export async function searchInstruments(accountId: number, query: string, signal?: AbortSignal): Promise<InstrumentSuggestion[]> {

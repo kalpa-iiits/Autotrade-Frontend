@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { accountName, brokerTitle, needsLogin, startBrokerLogin, useAccounts } from '../accounts'
 import { api, errorMessage, unwrap } from '../api/client'
-import type { Account, BrokerName, BrokerSpec, BrokerSpecs, Funds, StrategiesList } from '../api/types'
+import type { Account, BrokerName, BrokerSpec, BrokerSpecs, Funds } from '../api/types'
 import { Icon } from '../components/icons'
 import { Page } from '../components/Page'
 import { ErrorBox, Modal, Note, Pill, fmtDate, fmtMoney, fmtTime, useLoad, useNow } from '../components/ui'
 import { minutesToIstMidnight } from '../market'
+import { loadStrategies } from '../strategies'
 
 const SECRET = /secret/
 
@@ -35,7 +36,7 @@ export default function Accounts() {
   const { accounts, error, current, select, reload, returned, clearReturned } = useAccounts()
   const specs = useLoad(() => unwrap<BrokerSpecs>(api.GET('/api/accounts/brokers')))
   // Every account's strategies, to say which ones wait on a login.
-  const strategies = useLoad(() => unwrap<StrategiesList>(api.GET('/api/strategies')), [accounts?.length])
+  const strategies = useLoad(() => loadStrategies(undefined, 1, 100), [accounts?.length])
   const addRef = useRef<HTMLDivElement>(null)
 
   return (
