@@ -8,12 +8,14 @@ import { ErrorBox, Modal, Note, Pill, fmtDate, fmtMoney, fmtTime, useLoad, useNo
 import { minutesToIstMidnight } from '../market'
 import { loadStrategies } from '../strategies'
 
-const SECRET = /secret|^pin$/
+const SECRET = /secret|^pin$|^password$/
 
 const FIELD_LABELS: Record<string, string> = {
   client_id: 'App ID',
   secret_key: 'API secret',
   fy_id: 'Fyers user ID',
+  user_id: 'Kite user ID',
+  password: 'Kite password',
   pin: 'Login PIN',
   totp_secret: 'TOTP key',
   api_key: 'API key',
