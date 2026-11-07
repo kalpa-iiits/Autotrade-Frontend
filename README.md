@@ -42,11 +42,17 @@ the redirect URL on each Fyers / Kite app; the same URL works for every account.
 ```bash
 npm run build        # type-check + production bundle in dist/
 npm run lint
+npm test             # Vitest: API handling, market clock, and destructive-action confirmation
+npm run check        # lint + tests + production build (the deployment gate)
 ```
 
 `dist/` is static. Serve it behind the same host as the backend (reverse-proxy `/api` and
 `/auth` to it), or on another origin with `AUTOTRADE_CORS_ORIGINS` set on the backend — the
 client calls relative `/api/...` URLs, so a same-origin proxy is the simplest.
+
+The Cloudflare deployment uses the version of Wrangler pinned in `package-lock.json`, adds
+browser security headers in `worker.js`, and smoke-tests the public page after deployment.
+Set the GitHub Actions variable `PRODUCTION_FRONTEND_URL` to the public app URL.
 
 ## API types
 

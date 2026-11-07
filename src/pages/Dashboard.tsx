@@ -141,10 +141,11 @@ function AccountDashboard({ account }: { account: Account }) {
 function ReadyCheck() {
   const { accounts, current } = useAccounts()
   const [error, setError] = useState<string | null>(null)
-  const market = marketStatus()
+  const now = useNow(30_000)
+  const market = marketStatus(now)
   const daily = (accounts ?? []).filter((a) => a.needs_daily_login)
   const conn = current?.connection?.broker
-  const lastTick = conn?.last_tick_at ? Date.now() - new Date(conn.last_tick_at).getTime() : null
+  const lastTick = conn?.last_tick_at ? now.getTime() - new Date(conn.last_tick_at).getTime() : null
   const dataLive = !!conn?.connected && (current?.broker === 'paper' || (lastTick !== null && lastTick < 120_000) || !market.open)
   const checks = [
     ...daily.map((a) => ({
@@ -206,11 +207,12 @@ const DAY_MS = 86_400_000
 function AccountValue({ account, value, unrealized }: { account: Account; value: number | null; unrealized: number }) {
   const [range, setRange] = useState<Range>('1M')
   const days = RANGE_DAYS[range]
+  const now = useNow(60_000).getTime()
   const closed = useLoad(
     () =>
       unwrap<ClosedTrades>(
         api.GET('/api/trades/closed', {
-          params: { query: { account_id: account.id, since: days ? new Date(Date.now() - days * DAY_MS).toISOString() : undefined, limit: 1000 } },
+          params: { query: { account_id: account.id, since: days ? new Date(now - days * DAY_MS).toISOString() : undefined, limit: 1000 } },
         }),
       ),
     [range],
@@ -219,7 +221,6 @@ function AccountValue({ account, value, unrealized }: { account: Account; value:
   const points = useMemo<Point[]>(() => {
     if (value === null || !closed.data) return []
     const rows = [...closed.data.positions].sort((a, b) => (a.closed_at ?? '').localeCompare(b.closed_at ?? ''))
-    const now = Date.now()
     const first = days ? now - days * DAY_MS : rows.length ? new Date(rows[0].closed_at!).getTime() - DAY_MS : now - 7 * DAY_MS
     const base = value - unrealized
     const out: Point[] = []
@@ -229,7 +230,7 @@ function AccountValue({ account, value, unrealized }: { account: Account; value:
     }
     out.push({ t: now, v: value })
     return out
-  }, [closed.data, value, unrealized, days])
+  }, [closed.data, value, unrealized, days, now])
 
   const change = points.length > 1 ? points[points.length - 1].v - points[0].v : null
   const startValue = points[0]?.v

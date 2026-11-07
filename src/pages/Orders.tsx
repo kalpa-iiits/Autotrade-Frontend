@@ -143,7 +143,7 @@ function typeText(o: Order): string {
   return `SL-M · ${fmtNum(o.trigger_price)}`
 }
 
-function OrderTable({
+export function OrderTable({
   account,
   orders,
   source,

@@ -71,6 +71,8 @@ function AccountMarket({ account }: { account: Account }) {
   useEffect(() => {
     const s = params.get('symbol')
     if (!s) return
+    // The query string is an external navigation input that must update local selection once.
+    // oxlint-disable-next-line react/set-state-in-effect
     setSelected(s)
     setParams({}, { replace: true })
   }, [params, setParams])
