@@ -8,11 +8,14 @@ import { ErrorBox, Modal, Note, Pill, fmtDate, fmtMoney, fmtTime, useLoad, useNo
 import { minutesToIstMidnight } from '../market'
 import { loadStrategies } from '../strategies'
 
-const SECRET = /secret/
+const SECRET = /secret|^pin$/
 
 const FIELD_LABELS: Record<string, string> = {
   client_id: 'App ID',
   secret_key: 'API secret',
+  fy_id: 'Fyers user ID',
+  pin: 'Login PIN',
+  totp_secret: 'TOTP key',
   api_key: 'API key',
   api_secret: 'API secret',
   product_type: 'Default product',
@@ -154,6 +157,13 @@ function AccountCard({
     void act('login', () => startBrokerLogin(a.id))
   }
 
+  function autoLogin() {
+    void act('autologin', async () => {
+      const r = await unwrap<{ connected: boolean; reason: string | null }>(api.POST('/api/accounts/{account_id}/auto-login', path))
+      setNote(r.connected ? 'Logged in automatically.' : `Logged in, but not connected: ${r.reason ?? 'unknown reason'}`)
+    })
+  }
+
   function logout() {
     if (!window.confirm(`Log ${a.label} out of ${brokerTitle(a.broker)}? Today's token is cleared and it disconnects.`)) return
     void act('logout', () => unwrap(api.POST('/api/accounts/{account_id}/broker-logout', path)))
@@ -199,6 +209,15 @@ function AccountCard({
         {isCurrent ? <Pill tone="info">Active</Pill> : !paper && <span className="tag live">LIVE</span>}
       </div>
       <div className="small row" style={{ gap: 6 }}>{status}</div>
+      {a.auto_login?.enabled && (
+        <div className="small muted">
+          Auto-login each morning
+          {a.auto_login.last &&
+            (a.auto_login.last.ok
+              ? ` · last ran ${fmtTime(a.auto_login.last.at)}`
+              : ` · last attempt failed: ${a.auto_login.last.error ?? 'unknown error'}`)}
+        </div>
+      )}
 
       {!paper && !pending && conn?.connected && (
         <div>
@@ -244,6 +263,10 @@ function AccountCard({
           <button className="grow" disabled={busy !== null} onClick={() => reconnect(`Reset ${a.label}? Cash goes back to ${fmtMoney(startingCash)} and its simulated positions and open orders are dropped. Trade history is kept.`)}>
             {busy === 'reconnect' ? 'Resetting…' : 'Reset balance'}
           </button>
+        ) : pending && a.auto_login?.enabled ? (
+          <button className="primary grow" disabled={busy !== null} onClick={autoLogin}>
+            {busy === 'autologin' ? 'Logging in…' : 'Auto-login now'}
+          </button>
         ) : pending ? (
           <button className="primary grow" disabled={busy !== null} onClick={login}>
             {busy === 'login' ? 'Opening…' : <>Log in to {brokerTitle(a.broker)} <Icon name="external" size={14} /></>}
@@ -263,6 +286,8 @@ function AccountCard({
               <div className="menu" role="menu" style={{ position: 'static' }}>
                 {paper && !isCurrent && <button className="menu-item" onClick={() => { setMenu(false); onSelect() }}>Switch to this</button>}
                 {!paper && pending === false && <button className="menu-item" onClick={login}>Log in again</button>}
+                {a.auto_login?.enabled && <button className="menu-item" onClick={autoLogin}>Auto-login now</button>}
+                {a.auto_login?.enabled && pending && <button className="menu-item" onClick={login}>Log in via browser</button>}
                 {a.needs_daily_login && <button className="menu-item" onClick={() => { setMenu(false); setModal('token') }}>Paste today’s token</button>}
                 {a.needs_daily_login && a.logged_in_today && <button className="menu-item" onClick={logout}>Log out of broker</button>}
                 {!paper && <button className="menu-item" onClick={() => reconnect()}>Reconnect</button>}
@@ -358,20 +383,23 @@ function Fields({
 }) {
   return (
     <>
-      {spec.credentials.map((field) => (
+      {spec.credentials.map((field) => {
+        const optional = spec.optional_credentials?.includes(field) ?? false
+        return (
         <label key={field} className="field">
-          {label(field)}
+          {label(field)}{optional && <span className="muted"> (optional · for morning auto-login)</span>}
           <input
             type={SECRET.test(field) ? 'password' : 'text'}
             autoComplete="off"
             spellCheck={false}
             value={credentials[field] ?? ''}
-            placeholder={requireCredentials ? (SECRET.test(field) ? '••••••••••••' : 'Paste from developer console') : 'unchanged'}
+            placeholder={!requireCredentials ? 'unchanged' : optional ? 'optional' : SECRET.test(field) ? '••••••••••••' : 'Paste from developer console'}
             onChange={(e) => setCredential(field, e.target.value)}
-            required={requireCredentials}
+            required={requireCredentials && !optional}
           />
         </label>
-      ))}
+        )
+      })}
       {Object.entries(spec.options).map(([field, schema]) => (
         <label key={field} className="field">
           {label(field)}

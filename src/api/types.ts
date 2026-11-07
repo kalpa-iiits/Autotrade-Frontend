@@ -15,6 +15,8 @@ export type BrokerName = 'paper' | 'fyers' | 'zerodha'
 /** What each broker needs (GET /api/accounts/brokers), for the "add account" form. */
 export interface BrokerSpec {
   credentials: string[]
+  /** Credential fields that may be left empty (Fyers auto-login details). */
+  optional_credentials?: string[]
   options: Record<string, { type?: string; enum?: string[]; default?: unknown; description?: string; title?: string }>
   daily_login: boolean
 }
@@ -50,6 +52,8 @@ export interface Account {
   logged_in_today: boolean | null
   /** IST day (YYYY-MM-DD) of the last broker login; null if never or no daily login. */
   last_login_date: string | null
+  /** Fyers only: morning auto-login (needs user id, PIN and TOTP key) and its last attempt. */
+  auto_login?: { enabled: boolean; last: { at: string; ok: boolean; error: string | null } | null }
   created_at: string
   connection: Connection | null
 }

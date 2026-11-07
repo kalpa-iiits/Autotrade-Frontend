@@ -92,8 +92,9 @@ export interface paths {
         put?: never;
         /**
          * Signup
-         * @description Create your own user and sign in. Only when AUTOTRADE_ALLOW_SIGNUP=true (404 otherwise).
-         *     Shares the failed-login lockout, so it can't be used to hammer the server.
+         * @description Create your own user, with your email as its username, and sign in. Only when
+         *     AUTOTRADE_ALLOW_SIGNUP=true (404 otherwise). Shares the failed-login lockout, so it can't be
+         *     used to hammer the server.
          */
         post: operations["signup_api_auth_signup_post"];
         delete?: never;
@@ -219,6 +220,27 @@ export interface paths {
          * @description Use an access token generated elsewhere for today, instead of the broker login.
          */
         post: operations["paste_access_token_api_accounts__account_id__access_token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/auto-login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Auto Login Now
+         * @description Run the Fyers auto-login for this account now (normally it runs each morning) and
+         *     reconnect. Needs the account's Fyers user id, PIN and TOTP secret.
+         */
+        post: operations["auto_login_now_api_accounts__account_id__auto_login_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -528,7 +550,7 @@ export interface paths {
         };
         /**
          * List Catalog
-         * @description Every strategy defined in code, with its description, rules and settings.
+         * @description Strategies defined in code, paginated for the strategy library.
          */
         get: operations["list_catalog_api_strategies_catalog_get"];
         put?: never;
@@ -1415,6 +1437,39 @@ export interface operations {
             };
         };
     };
+    auto_login_now_api_accounts__account_id__auto_login_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     broker_logout_api_accounts__account_id__broker_logout_post: {
         parameters: {
             query?: never;
@@ -1944,6 +1999,9 @@ export interface operations {
             query?: {
                 include_hidden?: boolean;
                 account_id?: number | null;
+                page?: number;
+                page_size?: number;
+                status?: "all" | "running" | "stopped";
             };
             header?: {
                 authorization?: string | null;
@@ -2010,7 +2068,10 @@ export interface operations {
     };
     list_catalog_api_strategies_catalog_get: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
             header?: {
                 authorization?: string | null;
             };
