@@ -152,7 +152,7 @@ function Pager({ pagination, onPage }: { pagination: Pagination; onPage(page: nu
 }
 
 function AccountStrategies({ account }: { account: Account }) {
-  const { closedToday, trades } = useSummary()
+  const { closedToday, trades, funds } = useSummary()
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
   const [page, setPage] = useState(1)
@@ -213,6 +213,7 @@ function AccountStrategies({ account }: { account: Account }) {
             key={inst.id}
             inst={inst}
             account={account}
+            availableCapital={funds.data?.cash ?? null}
             todayPnl={pnl.get(inst.label)}
             onChange={replace}
             onRemoved={() => insts.length === 1 && page > 1 ? setPage(page - 1) : void reloadList()}
@@ -268,6 +269,7 @@ function RealOrdersNote({ account }: { account: Account }) {
 function InstanceCard({
   inst,
   account,
+  availableCapital,
   todayPnl,
   onChange,
   onRemoved,
@@ -276,6 +278,7 @@ function InstanceCard({
 }: {
   inst: Instance
   account: Account
+  availableCapital: number | null
   todayPnl: number | undefined
   onChange: (i: Instance) => void
   onRemoved: () => void
@@ -283,6 +286,7 @@ function InstanceCard({
   onSignals: () => void
 }) {
   const [editing, setEditing] = useState(false)
+  const [editingQuantity, setEditingQuantity] = useState(false)
   const [symbol, setSymbol] = useState(inst.symbol)
   const [timeframe, setTimeframe] = useState(inst.timeframe)
   const [sizing, setSizing] = useState<SizingDraft>(sizingDraft(inst))
@@ -328,6 +332,22 @@ function InstanceCard({
     })
   }
 
+  function saveQuantity(lots: number) {
+    void act(async () => {
+      const total = lots * Math.max(inst.lot_size, 1)
+      const updated = await unwrap<Instance>(
+        api.PATCH('/api/strategies/{instance_id}', {
+          ...path,
+          body: { size_mode: 'fixed', fixed_quantity: total },
+        }),
+      )
+      onChange(updated)
+      setSizing(sizingDraft(updated))
+      setEditingQuantity(false)
+      setNote(`Quantity updated to ${fmtQty(total)} units. New orders will use this size; existing positions and history were not changed.`)
+    })
+  }
+
   function remove() {
     if (!window.confirm(`Remove ${inst.label} on ${inst.symbol} ${inst.timeframe}? Its signal history is kept.`)) return
     void act(async () => {
@@ -347,8 +367,11 @@ function InstanceCard({
         <p className="small muted instance-desc">{inst.description}</p>
         <div className="actions">
           <button className="sm" onClick={onSignals}>Signal log</button>
+          <button className="sm" disabled={busy} onClick={() => setEditingQuantity(true)}>
+            Edit quantity
+          </button>
           <button className="sm" disabled={busy || !stopped} onClick={() => setEditing(!editing)} title={stopped ? 'Change symbol or timeframe' : 'Stop it first'}>
-            Edit
+            Edit setup
           </button>
           <button className="link danger small" disabled={busy || !stopped} onClick={remove} title={stopped ? '' : 'Stop it first'}>
             Remove
@@ -423,7 +446,95 @@ function InstanceCard({
           {note && <Note tone="warn" onClose={() => setNote(null)}>{note}</Note>}
         </div>
       ) : null}
+
+      {editingQuantity && (
+        <QuantityModal
+          inst={inst}
+          availableCapital={availableCapital}
+          busy={busy}
+          onSave={saveQuantity}
+          onClose={() => setEditingQuantity(false)}
+        />
+      )}
     </section>
+  )
+}
+
+function QuantityModal({
+  inst,
+  availableCapital,
+  busy,
+  onSave,
+  onClose,
+}: {
+  inst: Instance
+  availableCapital: number | null
+  busy: boolean
+  onSave: (lots: number) => void
+  onClose: () => void
+}) {
+  const lotSize = Math.max(inst.lot_size, 1)
+  const currentTotal = inst.sized_quantity ?? inst.fixed_quantity ?? inst.quantity
+  const [value, setValue] = useState(String(inst.lots ?? Math.max(1, Math.ceil(currentTotal / lotSize))))
+  const lots = Math.floor(Number(value))
+  const total = Number.isFinite(lots) && lots > 0 ? lots * lotSize : 0
+  const maxTotal = Math.min(inst.max_order_qty, inst.max_position)
+  const maxLots = Math.floor(maxTotal / lotSize)
+  // For direct instruments the latest execution price gives a useful pre-save capital check.
+  // Derivative strategies select the actual option contract later, so its broker remains the
+  // final margin authority when the future order is submitted.
+  const estimate = inst.capital_sizing && inst.last_price && total ? inst.last_price * total : null
+  const overCapital = estimate !== null && availableCapital !== null && estimate > availableCapital
+  const invalid = !total || total > maxTotal || overCapital
+
+  return (
+    <Modal title={`Edit quantity — ${inst.label}`} onClose={onClose}>
+      <form className="stack" onSubmit={(e) => { e.preventDefault(); if (!invalid) onSave(lots) }}>
+        <label className="field">
+          Number of lots
+          <input
+            autoFocus
+            className="mono"
+            type="number"
+            min={1}
+            max={maxLots}
+            step={1}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            aria-label="Number of lots"
+          />
+        </label>
+        <div className="inset" style={{ padding: 14 }}>
+          <div className="between">
+            <span className="small muted">Total quantity</span>
+            <strong className="mono">{lots > 0 ? `${fmtQty(lots)} × ${fmtQty(lotSize)} = ${fmtQty(total)}` : '—'} units</strong>
+          </div>
+          <div className="between tiny muted" style={{ marginTop: 8 }}>
+            <span>Maximum</span>
+            <span>{fmtQty(maxLots)} lots · {fmtQty(maxTotal)} units</span>
+          </div>
+          <div className="between tiny muted" style={{ marginTop: 6 }}>
+            <span>Available capital</span>
+            <span>{availableCapital === null ? 'Checked by broker at order time' : fmtMoney(availableCapital)}</span>
+          </div>
+          {estimate !== null && (
+            <div className={`between tiny ${overCapital ? 'neg' : 'muted'}`} style={{ marginTop: 6 }}>
+              <span>Estimated capital at {fmtNum(inst.last_price)}</span>
+              <span>{fmtMoney(estimate)}</span>
+            </div>
+          )}
+        </div>
+        {total > maxTotal && <Note tone="bad">Quantity exceeds this strategy’s {fmtQty(maxTotal)}-unit limit.</Note>}
+        {overCapital && <Note tone="bad">This quantity needs about {fmtMoney(estimate)}, more than the available {fmtMoney(availableCapital)}.</Note>}
+        <p className="small muted">
+          This updates the strategy’s execution size for future orders only. Open positions, existing orders, signals, and trade history stay unchanged.
+        </p>
+        <div className="row">
+          <button type="submit" className="primary" disabled={busy || invalid}>Save quantity</button>
+          <button type="button" onClick={onClose} disabled={busy}>Cancel</button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

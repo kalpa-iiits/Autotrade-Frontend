@@ -153,6 +153,12 @@ export interface Instance {
   capital_sizing: boolean
   /** Units the next entry would trade at the last price; null while capital sizing has no price. */
   sized_quantity: number | null
+  /** Exchange units in one lot (1 for ordinary cash instruments). */
+  lot_size: number
+  /** Current fixed size expressed in whole lots, when applicable. */
+  lots: number | null
+  /** Units the next order will use. */
+  total_quantity: number
   last_error: string | null
   position: number | null
   last_price: number | null
